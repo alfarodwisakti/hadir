@@ -3,13 +3,14 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
 
-const prsni = process.env.GITHUB_REPOSITORY?.split('/').pop();
+const repoName = process.env.GITHUB_REPOSITORY?.split('/').pop();
+const appBase = repoName ? `/${repoName}/` : '/';
 
 export default defineConfig(() => {
   return {
-    // Gunakan path relatif agar aman untuk Netlify, custom domain, dan GitHub Pages project site.
-    // Jika dipublish ke repo GitHub Pages, otomatis dibuat: /<repo-name>/
-    base: prsni ? `/${prsni}/` : './',
+    // Gunakan base URL yang konsisten untuk root domain dan GitHub Pages.
+    // Jika dipublish ke project site GitHub Pages, otomatis dibuat: /<repo-name>/
+    base: appBase,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
