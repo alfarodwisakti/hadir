@@ -4,8 +4,11 @@ export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxx_Yx9ZwyR-PoSoliQ-kpM4JaHvsEsjmQca8Mp9L-cpXBq8GSC-wqiPgEonek1tb8g9g/exec";
 
-export function getGoogleClientId(): string {
-  return (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+export function getSupabaseConfig(): { url: string; anonKey: string } {
+  return {
+    url: (import.meta.env.VITE_SUPABASE_URL || "").trim(),
+    anonKey: (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim()
+  };
 }
 
 // Seed data awal dihapus agar daftar siswa bersifat kosong sampai data ditambahkan manual.
@@ -205,10 +208,10 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     const name = String(payload?.name || payload?.nama || "").trim() || email.split('@')[0] || "Siswa";
 
     if (!email || !email.includes('@')) {
-      return { success: false, message: "Login Google gagal: email tidak valid." };
+      return { success: false, message: "Login Supabase gagal: email tidak valid." };
     }
 
-    const token = "g_tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const token = "supabase_tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
     return {
       success: true,
       username: email,
