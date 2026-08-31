@@ -38,6 +38,7 @@ export const PresensiView: React.FC = () => {
   const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const isCooldownRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Manual Tab state
   const [manualQuery, setManualQuery] = useState('');
@@ -52,26 +53,35 @@ export const PresensiView: React.FC = () => {
   // Play audio beep
   const playBeep = (isSuccess: boolean) => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtor) return;
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioCtor();
+      }
+
+      const audioCtx = audioContextRef.current;
+      if (audioCtx.state === 'suspended') {
+        void audioCtx.resume();
+      }
+
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      osc.type = 'sine';
       osc.connect(gain);
       gain.connect(audioCtx.destination);
-      
-      if (isSuccess) {
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.2);
-      } else {
-        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        osc.start(audioCtx.currentTime);
-        osc.stop(audioCtx.currentTime + 0.3);
-      }
+
+      const duration = isSuccess ? 0.18 : 0.26;
+      const startFrequency = isSuccess ? 820 : 260;
+      const endFrequency = isSuccess ? 1180 : 180;
+
+      osc.frequency.setValueAtTime(startFrequency, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(endFrequency, audioCtx.currentTime + duration);
+      gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + duration);
     } catch {
       // Audio context might be restricted before user gesture
     }
@@ -111,7 +121,14 @@ export const PresensiView: React.FC = () => {
     });
   };
 
-  const handleAttendance = async (nomorQr: string, statusInput: StatusPresensi, metode: MetodePresensi, keterangan: string = "") => {
+  const handleAttendance = async (
+    nomorQr: string,
+    statusInput: StatusPresensi,
+    metode: MetodePresensi,
+    keterangan: string = "",
+    options: { playSuccessSound?: boolean; playErrorSound?: boolean } = {}
+  ) => {
+    const { playSuccessSound = true, playErrorSound = true } = options;
     const nowJam = formatJam();
     const res = await callAPI("simpanPresensi", {
       nomorQr,
@@ -124,7 +141,9 @@ export const PresensiView: React.FC = () => {
     });
 
     if (res.success) {
-      playBeep(true);
+      if (playSuccessSound) {
+        playBeep(true);
+      }
       const studentName = res.nama || "Siswa";
       const finalStatus = res.status || statusInput;
       showNotification(`✅ Presensi Berhasil: ${studentName} (${nomorQr}) — Status: ${finalStatus}`, false);
@@ -140,7 +159,9 @@ export const PresensiView: React.FC = () => {
         ...prev
       ]);
     } else {
-      playBeep(false);
+      if (playErrorSound) {
+        playBeep(false);
+      }
       showNotification(`⚠️ ${res.message || 'Gagal mencatat presensi'} (Nomor: ${nomorQr})`, true);
     }
     return res;
@@ -175,13 +196,21 @@ export const PresensiView: React.FC = () => {
 
           isCooldownRef.current = true;
           setScannerStatus(`Memproses kode: ${cleaned}...`);
+          playBeep(true);
 
-          await handleAttendance(cleaned, "Hadir", "Scan");
+          const result = await handleAttendance(cleaned, "Hadir", "Scan", "", {
+            playSuccessSound: false,
+            playErrorSound: false
+          });
+
+          if (!result.success) {
+            playBeep(false);
+          }
 
           setTimeout(() => {
             isCooldownRef.current = false;
             setScannerStatus('Scanner aktif. Arahkan barcode/QR ke kamera.');
-          }, 3000);
+          }, 1200);
         },
         () => {
           // Frame error (normal during search)
