@@ -66,6 +66,17 @@ export const RandomCallView: React.FC = () => {
     setTimeout(() => ctx.close(), duration + 50);
   };
 
+  const normalizeForSpeech = (name: string) => {
+    return name
+      .trim()
+      .replace(/[-_/]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\./g, '')
+      .replace(/\b([A-Z])\b/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const playCallSound = () => {
     if (!soundEnabled) return;
 
@@ -76,11 +87,21 @@ export const RandomCallView: React.FC = () => {
 
     const speech = window.speechSynthesis;
     if (selected && speech && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(selected.nama);
+      const utterance = new SpeechSynthesisUtterance(normalizeForSpeech(selected.nama));
       utterance.lang = 'id-ID';
-      utterance.rate = 0.95;
-      utterance.pitch = 1.2;
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
       utterance.volume = 1;
+
+      const voices = speech.getVoices();
+      const preferredVoice = voices.find((voice) => /id-ID|indonesian|indonesia/i.test(voice.lang))
+        || voices.find((voice) => /^id/i.test(voice.lang))
+        || voices[0];
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+
       speech.cancel();
       setTimeout(() => speech.speak(utterance), 150);
     }

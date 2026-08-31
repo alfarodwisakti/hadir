@@ -45,6 +45,7 @@ export const PresensiView: React.FC = () => {
   const [manualNama, setManualNama] = useState('');
   const [manualStatus, setManualStatus] = useState<StatusPresensi>('Hadir');
   const [manualKeterangan, setManualKeterangan] = useState('');
+  const [manualConfirmChecked, setManualConfirmChecked] = useState(false);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
 
@@ -246,6 +247,11 @@ export const PresensiView: React.FC = () => {
       return;
     }
 
+    if (!manualConfirmChecked) {
+      showNotification('Centang konfirmasi data siswa sebelum menyimpan presensi manual.', true);
+      return;
+    }
+
     setSubmittingManual(true);
     const res = await handleAttendance(manualNomorQr, manualStatus, "Manual", manualKeterangan);
     setSubmittingManual(false);
@@ -255,6 +261,8 @@ export const PresensiView: React.FC = () => {
       setManualNomorQr('');
       setManualNama('');
       setManualKeterangan('');
+      setManualStatus('Hadir');
+      setManualConfirmChecked(false);
     }
   };
 
@@ -442,6 +450,7 @@ export const PresensiView: React.FC = () => {
                     value={manualQuery}
                     onChange={(e) => {
                       setManualQuery(e.target.value);
+                      setManualConfirmChecked(false);
                       setShowAutocomplete(true);
                       if (manualNomorQr && e.target.value !== `${manualNama} (${manualNomorQr})`) {
                         setManualNomorQr('');
@@ -466,6 +475,7 @@ export const PresensiView: React.FC = () => {
                           setManualNomorQr(s.nomorQr);
                           setManualNama(s.nama);
                           setManualQuery(`${s.nama} (${s.nomorQr})`);
+                          setManualConfirmChecked(false);
                           setShowAutocomplete(false);
                         }}
                         className="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 flex items-center justify-between transition"
@@ -490,7 +500,10 @@ export const PresensiView: React.FC = () => {
                     <button
                       key={st}
                       type="button"
-                      onClick={() => setManualStatus(st)}
+                      onClick={() => {
+                        setManualStatus(st);
+                        setManualConfirmChecked(false);
+                      }}
                       className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold border transition text-center ${
                         manualStatus === st
                           ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
@@ -500,6 +513,22 @@ export const PresensiView: React.FC = () => {
                       {st}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-2">Konfirmasi Data</p>
+                <div className="flex items-start gap-3 text-sm text-slate-700">
+                  <input
+                    id="manualConfirmCheckbox"
+                    type="checkbox"
+                    checked={manualConfirmChecked}
+                    onChange={(e) => setManualConfirmChecked(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="manualConfirmCheckbox" className="leading-relaxed">
+                    Saya sudah mengecek data siswa <span className="font-semibold">{manualNama || 'belum dipilih'}</span> dengan status <span className="font-semibold">{manualStatus}</span> dan siap konfirmasi presensi.
+                  </label>
                 </div>
               </div>
 
@@ -522,10 +551,10 @@ export const PresensiView: React.FC = () => {
               <button
                 id="btnSubmitManual"
                 type="submit"
-                disabled={submittingManual || !manualNomorQr}
+                disabled={submittingManual || !manualNomorQr || !manualConfirmChecked}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition shadow-md shadow-blue-600/20 active:scale-98"
               >
-                {submittingManual ? 'Menyimpan Presensi...' : 'Simpan Presensi Manual'}
+                {submittingManual ? 'Menyimpan Presensi...' : 'Konfirmasi & Simpan Presensi'}
               </button>
             </form>
           )}
