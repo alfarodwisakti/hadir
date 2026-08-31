@@ -4,11 +4,8 @@ export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxx_Yx9ZwyR-PoSoliQ-kpM4JaHvsEsjmQca8Mp9L-cpXBq8GSC-wqiPgEonek1tb8g9g/exec";
 
-export function getSupabaseConfig(): { url: string; anonKey: string } {
-  return {
-    url: (import.meta.env.VITE_SUPABASE_URL || "").trim(),
-    anonKey: (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim()
-  };
+export function getGoogleClientId(): string {
+  return (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 }
 
 // Seed data awal dihapus agar daftar siswa bersifat kosong sampai data ditambahkan manual.
