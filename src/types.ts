@@ -3,6 +3,7 @@ export interface Siswa {
   barcode?: string;
   nama: string;
   kelas: string;
+  email?: string;
 }
 
 export type StatusPresensi = 'Hadir' | 'Terlambat' | 'Izin' | 'Sakit' | 'Alpa';
@@ -25,6 +26,8 @@ export interface UserSession {
   nama: string;
   role: string;
   token: string;
+  email?: string;
+  provider?: 'local' | 'google';
 }
 
 export interface RekapHarianData {
@@ -68,4 +71,6 @@ export interface ApiResponse<T = any> {
   username?: string;
   role?: string;
   token?: string;
+  email?: string;
+  provider?: 'local' | 'google';
 }

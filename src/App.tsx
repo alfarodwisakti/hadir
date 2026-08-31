@@ -37,7 +37,7 @@ export default function App() {
 
   const handleLoginSuccess = (loggedInUser: UserSession) => {
     setUser(loggedInUser);
-    setCurrentTab('dashboard');
+    setCurrentTab(loggedInUser.role === 'Siswa' ? 'dashboard' : 'dashboard');
   };
 
   if (!isReady) {

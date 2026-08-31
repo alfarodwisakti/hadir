@@ -41,6 +41,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings' as NavTab, label: 'Koneksi & Panduan', icon: Settings, desc: 'Google Apps Script' },
   ];
 
+  const visibleNavItems = user?.role === 'Siswa'
+    ? navItems.filter(item => item.id === 'dashboard' || item.id === 'presensi')
+    : navItems;
+
   return (
     <>
       {/* Mobile Topbar */}
@@ -107,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation items */}
         <nav className="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
             return (

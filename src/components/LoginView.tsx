@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   GraduationCap, 
   Lock, 
   User, 
   AlertCircle, 
   ArrowRight,
-  Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Chrome
 } from 'lucide-react';
-import { callAPI, saveSession } from '../services/api';
+import { callAPI, getGoogleClientId, saveSession } from '../services/api';
 import { UserSession } from '../types';
 
 interface LoginViewProps {
@@ -20,6 +20,100 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('admin123');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    const clientId = getGoogleClientId();
+    if (!clientId) return;
+
+    const existingScript = document.getElementById('google-gsi-script');
+    if (existingScript) {
+      if ((window as any).google?.accounts?.id) {
+        initializeGoogleButton();
+      }
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'google-gsi-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = initializeGoogleButton;
+    document.body.appendChild(script);
+
+    function initializeGoogleButton() {
+      const google = (window as any).google;
+      if (!google?.accounts?.id) return;
+
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: { credential?: string }) => {
+          await handleGoogleCredential(response);
+        }
+      });
+    }
+  }, []);
+
+  const decodeGoogleJwt = (jwt: string) => {
+    try {
+      const payload = jwt.split('.')[1];
+      if (!payload) return null;
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      return JSON.parse(atob(padded));
+    } catch {
+      return null;
+    }
+  };
+
+  const handleGoogleCredential = async (response: { credential?: string }) => {
+    const credential = response?.credential;
+    if (!credential) {
+      setErrorMsg('Login Google dibatalkan atau tidak tersedia.');
+      return;
+    }
+
+    setGoogleLoading(true);
+    setErrorMsg('');
+
+    try {
+      const payload = decodeGoogleJwt(credential);
+      const email = String(payload?.email || '').trim();
+      const name = String(payload?.name || payload?.given_name || 'Siswa Google').trim();
+
+      if (!email) {
+        setErrorMsg('Email Google tidak tersedia dari akun yang dipilih.');
+        return;
+      }
+
+      const res = await callAPI('googleLogin', {
+        email,
+        name,
+        credential,
+        provider: 'google'
+      });
+
+      if (res.success && res.token) {
+        const user: UserSession = {
+          username: res.username || email,
+          nama: res.nama || name,
+          role: res.role || 'Siswa',
+          token: res.token,
+          email,
+          provider: 'google'
+        };
+        saveSession(user);
+        onLoginSuccess(user);
+      } else {
+        setErrorMsg(res.message || 'Login Google gagal.');
+      }
+    } catch {
+      setErrorMsg('Gagal menghubungi server untuk login Google.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +227,33 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               )}
             </button>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-[0.2em] text-slate-400">
+              <span className="bg-white px-2">atau</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const clientId = getGoogleClientId();
+              const google = (window as any).google;
+              if (!clientId || !google?.accounts?.id) {
+                setErrorMsg('Google Client ID belum dikonfigurasi. Tambahkan VITE_GOOGLE_CLIENT_ID di file .env.');
+                return;
+              }
+              google.accounts.id.prompt();
+            }}
+            disabled={googleLoading}
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2"
+          >
+            <Chrome className="w-4 h-4 text-blue-600" />
+            <span>{googleLoading ? 'Menghubungkan Google...' : 'Masuk dengan Google'}</span>
+          </button>
 
           {/* Quick Demo Credentials */}
           <div className="pt-4 border-t border-slate-100">

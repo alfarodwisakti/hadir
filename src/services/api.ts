@@ -4,6 +4,10 @@ export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxx_Yx9ZwyR-PoSoliQ-kpM4JaHvsEsjmQca8Mp9L-cpXBq8GSC-wqiPgEonek1tb8g9g/exec";
 
+export function getGoogleClientId(): string {
+  return (import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+}
+
 // Seed data awal dihapus agar daftar siswa bersifat kosong sampai data ditambahkan manual.
 const INITIAL_SISWA: Siswa[] = [];
 
@@ -194,6 +198,25 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       };
     }
     return { success: false, message: "Username atau password salah. (Gunakan: walikelas8g / admin123)" };
+  }
+
+  if (action === "googleLogin") {
+    const email = String(payload?.email || "").trim();
+    const name = String(payload?.name || payload?.nama || "").trim() || email.split('@')[0] || "Siswa";
+
+    if (!email || !email.includes('@')) {
+      return { success: false, message: "Login Google gagal: email tidak valid." };
+    }
+
+    const token = "g_tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    return {
+      success: true,
+      username: email,
+      nama: name,
+      role: "Siswa",
+      email,
+      token
+    };
   }
 
   // Check auth
