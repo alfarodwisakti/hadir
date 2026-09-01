@@ -5,9 +5,11 @@ import {
   User,
   AlertCircle,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Chrome
 } from 'lucide-react';
 import { callAPI, saveSession } from '../services/api';
+import { supabase } from '../lib/supabase';
 import { UserSession } from '../types';
 
 interface LoginViewProps {
@@ -53,6 +55,36 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const handleQuickLogin = (u: string, p: string) => {
     setUsername(u);
     setPassword(p);
+  };
+
+  const handleSupabaseGoogleLogin = async () => {
+    if (!supabase) {
+      setErrorMsg('Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Login Google via Supabase gagal.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -132,6 +164,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               )}
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={handleSupabaseGoogleLogin}
+            disabled={loading}
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2"
+          >
+            <Chrome className="w-4 h-4 text-blue-600" />
+            <span>Masuk dengan Google via Supabase</span>
+          </button>
 
           <div className="relative pt-2">
             <div className="absolute inset-0 flex items-center">

@@ -12,7 +12,8 @@ import { SiswaView } from './components/SiswaView';
 import { RandomCallView } from './components/RandomCallView';
 import { SettingsView } from './components/SettingsView';
 import { LoginView } from './components/LoginView';
-import { getSession, clearSession } from './services/api';
+import { getSession, clearSession, saveSession } from './services/api';
+import { supabase } from './lib/supabase';
 import { UserSession } from './types';
 
 export default function App() {
@@ -26,6 +27,31 @@ export default function App() {
     if (savedUser) {
       setUser(savedUser);
     }
+
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!session?.user) {
+          clearSession();
+          setUser(null);
+          return;
+        }
+
+        const nextUser: UserSession = {
+          username: session.user.email || session.user.user_metadata?.full_name || 'user',
+          nama: session.user.user_metadata?.full_name || session.user.email || 'User',
+          role: 'Siswa',
+          token: session.access_token,
+          email: session.user.email || undefined,
+          provider: 'supabase'
+        };
+
+        saveSession(nextUser);
+        setUser(nextUser);
+      });
+
+      return () => subscription.unsubscribe();
+    }
+
     setIsReady(true);
   }, []);
 
