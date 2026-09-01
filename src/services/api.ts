@@ -205,10 +205,10 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     const name = String(payload?.name || payload?.nama || "").trim() || email.split('@')[0] || "Siswa";
 
     if (!email || !email.includes('@')) {
-      return { success: false, message: "Login Supabase gagal: email tidak valid." };
+      return { success: false, message: "Login Google gagal: email tidak valid." };
     }
 
-    const token = "supabase_tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const token = "google_tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
     return {
       success: true,
       username: email,
