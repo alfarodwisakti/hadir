@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'rekap' as NavTab, label: 'Rekap & Laporan', icon: BarChart3, desc: 'Grafik & export Excel' },
     { id: 'siswa' as NavTab, label: 'Data Siswa', icon: Users, desc: 'Kelola & cetak kartu' },
     { id: 'random-call' as NavTab, label: 'Panggil Acak', icon: BellRing, desc: 'Animasi & suara' },
-    { id: 'settings' as NavTab, label: 'Koneksi & Panduan', icon: Settings, desc: 'Google Apps Script' },
+    { id: 'settings' as NavTab, label: 'Koneksi & Panduan', icon: Settings, desc: 'Supabase & backend' },
   ];
 
   const visibleNavItems = user?.role === 'Siswa'

@@ -27,7 +27,7 @@ export interface UserSession {
   role: string;
   token: string;
   email?: string;
-  provider?: 'local' | 'google';
+  provider?: 'local' | 'supabase';
 }
 
 export interface RekapHarianData {
@@ -72,5 +72,5 @@ export interface ApiResponse<T = any> {
   role?: string;
   token?: string;
   email?: string;
-  provider?: 'local' | 'google';
+  provider?: 'local' | 'supabase';
 }
