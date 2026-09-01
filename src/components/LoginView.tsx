@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   GraduationCap,
   Lock,
   User,
   AlertCircle,
   ArrowRight,
-  ShieldCheck,
   Chrome
 } from 'lucide-react';
 import { callAPI, saveSession } from '../services/api';
@@ -17,8 +16,8 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
-  const [username, setUsername] = useState('walikelas8g');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -52,10 +51,20 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleQuickLogin = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-  };
+  useEffect(() => {
+    const syncAdminUsers = async () => {
+      try {
+        const res = await callAPI('getAdminUsers');
+        if (!res.success || !Array.isArray(res.data)) {
+          return;
+        }
+      } catch {
+        // Ignore sync errors; login will still validate against local cached admin data if present.
+      }
+    };
+
+    syncAdminUsers();
+  }, []);
 
   const handleSupabaseGoogleLogin = async () => {
     if (!supabase) {
@@ -177,39 +186,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <span>Masuk dengan Google via Supabase</span>
           </button>
 
-          <div className="relative pt-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200" />
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase tracking-[0.2em] text-slate-400">
-              <span className="bg-white px-2">akses cepat</span>
-            </div>
-          </div>
-
-          {/* Quick Demo Credentials */}
-          <div className="pt-4 border-t border-slate-100">
-            <div className="text-[11px] font-bold text-slate-600 mb-2 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>Akun Demo Cepat:</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('walikelas8g', 'admin123')}
-              className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 text-left transition flex items-center justify-between group"
-            >
-              <div>
-                <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700">
-                  Wali Kelas 8.G (Bu Siti)
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">
-                  walikelas8g / admin123
-                </div>
-              </div>
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-100/60 px-2 py-0.5 rounded">
-                Gunakan
-              </span>
-            </button>
-          </div>
         </div>
 
         {/* Footer info */}

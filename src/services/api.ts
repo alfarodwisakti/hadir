@@ -2,10 +2,36 @@ import { Siswa, PresensiRecord, UserSession, ApiResponse, RekapHarianData, Rekap
 
 export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
-const DEFAULT_API_URL = "";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxx_Yx9ZwyR-PoSoliQ-kpM4JaHvsEsjmQca8Mp9L-cpXBq8GSC-wqiPgEonek1tb8g9g/exec";
+
+interface AdminUser {
+  username: string;
+  password: string;
+  nama: string;
+  role: string;
+}
 
 // Seed data awal dihapus agar daftar siswa bersifat kosong sampai data ditambahkan manual.
 const INITIAL_SISWA: Siswa[] = [];
+
+function getLocalAdminUsers(): AdminUser[] {
+  const raw = localStorage.getItem("presensi_local_admin_users");
+  if (!raw) {
+    localStorage.setItem("presensi_local_admin_users", JSON.stringify([]));
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalAdminUsers(list: AdminUser[]): void {
+  localStorage.setItem("presensi_local_admin_users", JSON.stringify(list));
+}
 
 export function getApiUrl(): string {
   return localStorage.getItem("presensi_api_url") || DEFAULT_API_URL;
@@ -178,22 +204,37 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
   const session = getSession();
 
   if (action === "login") {
-    const { username, password } = payload;
-    if (
-      (username === "walikelas8g" && password === "admin123") ||
-      (username === "admin" && password === "admin123") ||
-      (username && password && username.toLowerCase() === "guru" && password === "123456")
-    ) {
+    const username = String(payload?.username ?? "").trim();
+    const password = String(payload?.password ?? "").trim();
+    const adminUsers = getLocalAdminUsers();
+
+    if (!username || !password) {
+      return { success: false, message: "Username dan password wajib diisi." };
+    }
+
+    const matched = adminUsers.find(user =>
+      user.username.toLowerCase() === username.toLowerCase() && user.password === password
+    );
+
+    if (matched) {
       const token = "tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
       return {
         success: true,
-        username,
-        nama: username === "walikelas8g" ? "Bu Siti (Wali Kelas)" : "Admin Presensi",
-        role: "Admin",
+        username: matched.username,
+        nama: matched.nama || matched.username,
+        role: matched.role || "Admin",
         token
       };
     }
-    return { success: false, message: "Username atau password salah. (Gunakan: walikelas8g / admin123)" };
+
+    if (adminUsers.length === 0) {
+      return {
+        success: false,
+        message: "Data admin belum sinkron dengan spreadsheet. Hubungkan sheet Admin lalu login kembali."
+      };
+    }
+
+    return { success: false, message: "Username atau password tidak cocok dengan data spreadsheet." };
   }
 
   if (action === "googleLogin") {
@@ -209,10 +250,15 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       success: true,
       username: email,
       nama: name,
-      role: "Siswa",
+      role: "Pengunjung",
       email,
       token
     };
+  }
+
+  if (action === "getAdminUsers") {
+    const adminUsers = getLocalAdminUsers();
+    return { success: true, data: adminUsers };
   }
 
   // Check auth
@@ -466,6 +512,14 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
         if (action === "getDaftarSiswa" && Array.isArray(json.data)) {
           saveLocalSiswa(json.data);
         }
+        if ((action === "getAdminUsers" || action === "login") && Array.isArray(json.data)) {
+          saveLocalAdminUsers(json.data.map((user: any) => ({
+            username: String(user.username ?? "").trim(),
+            password: String(user.password ?? "").trim(),
+            nama: String(user.nama ?? user.username ?? "").trim(),
+            role: String(user.role ?? "Admin").trim() || "Admin"
+          }))); 
+        }
       }
       return json;
     } else {
@@ -484,4 +538,5 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
 export function resetDatabaseToDefault(): void {
   localStorage.setItem("presensi_local_siswa", JSON.stringify(INITIAL_SISWA));
   localStorage.removeItem("presensi_local_records");
+  localStorage.setItem("presensi_local_admin_users", JSON.stringify([]));
 }

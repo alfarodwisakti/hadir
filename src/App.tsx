@@ -39,7 +39,7 @@ export default function App() {
         const nextUser: UserSession = {
           username: session.user.email || session.user.user_metadata?.full_name || 'user',
           nama: session.user.user_metadata?.full_name || session.user.email || 'User',
-          role: 'Siswa',
+          role: 'Pengunjung',
           token: session.access_token,
           email: session.user.email || undefined,
           provider: 'supabase'
@@ -64,7 +64,7 @@ export default function App() {
 
   const handleLoginSuccess = (loggedInUser: UserSession) => {
     setUser(loggedInUser);
-    setCurrentTab(loggedInUser.role === 'Siswa' ? 'dashboard' : 'dashboard');
+    setCurrentTab('dashboard');
   };
 
   if (!isReady) {
@@ -94,9 +94,9 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-h-screen">
-        {currentTab === 'dashboard' && <DashboardView onNavigate={setCurrentTab} />}
+        {currentTab === 'dashboard' && <DashboardView onNavigate={setCurrentTab} userRole={user?.role} />}
         {currentTab === 'presensi' && <PresensiView />}
-        {currentTab === 'rekap' && <RekapView />}
+        {currentTab === 'rekap' && <RekapView userRole={user?.role} />}
         {currentTab === 'siswa' && <SiswaView />}
         {currentTab === 'random-call' && <RandomCallView />}
         {currentTab === 'settings' && <SettingsView />}

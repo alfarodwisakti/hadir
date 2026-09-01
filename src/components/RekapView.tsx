@@ -15,7 +15,11 @@ import * as XLSX from 'xlsx';
 import { callAPI, DEFAULT_KELAS } from '../services/api';
 import { RekapPeriodeData, SiswaRekapStat } from '../types';
 
-export const RekapView: React.FC = () => {
+interface RekapViewProps {
+  userRole?: string;
+}
+
+export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
   const formatDateInput = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -128,14 +132,15 @@ export const RekapView: React.FC = () => {
 
   const totalLogs = data.totalHadir + data.totalIzin + data.totalSakit + data.totalAlpa;
   const persenHadirOverall = totalLogs > 0 ? Math.round((data.totalHadir / totalLogs) * 100) : 0;
+  const isVisitor = userRole === 'Pengunjung';
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Rekap & Laporan Presensi</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Analisis kehadiran siswa kelas {DEFAULT_KELAS} dan unduh laporan Excel</p>
+          <h1 className="text-2xl font-bold text-slate-800">{isVisitor ? 'Rekap Kehadiran Publik' : 'Rekap & Laporan Presensi'}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{isVisitor ? 'Pantau perkembangan kehadiran kelas 8.G secara transparan dan mudah dibaca.' : 'Analisis kehadiran siswa kelas ' + DEFAULT_KELAS + ' dan unduh laporan Excel'}</p>
         </div>
 
         <button
@@ -144,7 +149,7 @@ export const RekapView: React.FC = () => {
           className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md shadow-emerald-600/20 self-start sm:self-auto"
         >
           <FileSpreadsheet className="w-4 h-4" />
-          <span>Export Excel (.xlsx)</span>
+          <span>{isVisitor ? 'Unduh Ringkasan' : 'Export Excel (.xlsx)'}</span>
         </button>
       </div>
 
@@ -214,6 +219,14 @@ export const RekapView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {isVisitor && (
+        <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-5 text-white shadow-lg shadow-emerald-500/20">
+          <div className="text-xs uppercase tracking-[0.2em] text-emerald-100">Kondisi Hari Ini</div>
+          <div className="mt-3 text-3xl font-black">{persenHadirOverall}%</div>
+          <div className="mt-2 text-sm text-emerald-50">Rata-rata kehadiran siswa kelas {DEFAULT_KELAS}</div>
+        </div>
+      )}
 
       {/* Summary Statistics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

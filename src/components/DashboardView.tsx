@@ -18,9 +18,10 @@ import { NavTab } from './Sidebar';
 
 interface DashboardViewProps {
   onNavigate: (tab: NavTab) => void;
+  userRole?: string;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRole }) => {
   const [data, setData] = useState<RekapHarianData>({
     hadir: 0,
     izin: 0,
@@ -31,6 +32,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(formatJam());
   const todayStr = formatTanggal();
+  const isVisitor = userRole === 'Pengunjung';
+  const totalToday = data.hadir + data.izin + data.sakit + data.alpa || 1;
+  const hadirPct = Math.round((data.hadir / totalToday) * 100);
 
   const loadData = async () => {
     setLoading(true);
@@ -74,15 +78,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg shadow-blue-600/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className={`rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 ${isVisitor ? 'bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 shadow-sky-600/20' : 'bg-gradient-to-r from-blue-600 to-indigo-700 shadow-blue-600/10'}`}>
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-xs text-xs font-semibold mb-2">
             <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            <span>Presensi Harian Kelas {DEFAULT_KELAS}</span>
+            <span>{isVisitor ? 'Live Update Pengunjung' : 'Presensi Harian Kelas'} {DEFAULT_KELAS}</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Dashboard Presensi</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{isVisitor ? 'Pantau Kehadiran Kelas 8.G' : 'Dashboard Presensi'}</h1>
           <p className="text-blue-100 text-sm mt-1">
-            Monitoring kehadiran siswa kelas 8.G secara real-time dan terintegrasi.
+            {isVisitor
+              ? 'Data hadir siswa ditampilkan secara real-time agar pengunjung bisa melihat kondisi kelas dengan tampilan yang lebih informatif.'
+              : 'Monitoring kehadiran siswa kelas 8.G secara real-time dan terintegrasi.'}
           </p>
         </div>
 
@@ -102,6 +108,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </button>
         </div>
       </div>
+
+      {isVisitor && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl p-5 shadow-lg shadow-emerald-500/20">
+            <div className="text-xs uppercase tracking-[0.18em] text-emerald-100">Persentase Hadir</div>
+            <div className="mt-3 text-3xl font-black">{hadirPct}%</div>
+            <div className="mt-2 text-sm text-emerald-50">Kehadiran hari ini</div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Siswa Tercatat</div>
+            <div className="mt-3 text-3xl font-black text-slate-800">{data.hadir + data.izin + data.sakit + data.alpa}</div>
+            <div className="mt-2 text-sm text-slate-500">Catatan absensi hari ini</div>
+          </div>
+          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</div>
+            <div className="mt-3 flex items-center gap-2 text-lg font-bold text-slate-800">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              Online & sinkron
+            </div>
+            <div className="mt-2 text-sm text-slate-500">Data terhubung dengan admin</div>
+          </div>
+        </div>
+      )}
 
       {/* Stat Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -157,22 +186,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       {/* Quick Action Cards */}
       <div>
         <h2 className="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
-          <span>Aksi Cepat</span>
+          <span>{isVisitor ? 'Navigasi Cepat' : 'Aksi Cepat'}</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => onNavigate('presensi')}
+            onClick={() => onNavigate('dashboard')}
             className="flex items-start gap-4 p-5 rounded-xl bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-md active:scale-98 transition text-left group"
           >
             <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition flex items-center justify-center shrink-0">
-              <QrCode className="w-6 h-6" />
+              <BarChart3 className="w-6 h-6" />
             </div>
             <div>
               <div className="font-bold text-slate-800 group-hover:text-blue-600 transition">
-                Mulai Presensi
+                {isVisitor ? 'Ringkasan Kehadiran' : 'Dashboard Utama'}
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Scan barcode kartu pelajar atau input manual status kehadiran.
+                {isVisitor ? 'Lihat statistik real-time untuk kondisi kelas hari ini.' : 'Monitoring presensi aktif dan status segera.'}
               </div>
             </div>
           </button>
@@ -203,10 +232,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
             <div>
               <div className="font-bold text-slate-800 group-hover:text-purple-600 transition">
-                Kelola Data Siswa
+                {isVisitor ? 'Data Kelas' : 'Kelola Data Siswa'}
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Tambah, ubah, hapus, dan cetak kartu barcode identitas siswa.
+                {isVisitor ? 'Informasi siswa dan status kehadiran yang selalu terupdate.' : 'Tambah, ubah, hapus, dan cetak kartu barcode identitas siswa.'}
               </div>
             </div>
           </button>

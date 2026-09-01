@@ -41,8 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings' as NavTab, label: 'Koneksi & Panduan', icon: Settings, desc: 'Supabase & backend' },
   ];
 
-  const visibleNavItems = user?.role === 'Siswa'
-    ? navItems.filter(item => item.id === 'dashboard' || item.id === 'presensi')
+  const visibleNavItems = user?.role === 'Pengunjung'
+    ? navItems.filter(item => item.id === 'dashboard' || item.id === 'rekap')
     : navItems;
 
   return (
