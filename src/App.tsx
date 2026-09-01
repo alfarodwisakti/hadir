@@ -49,6 +49,7 @@ export default function App() {
         setUser(nextUser);
       });
 
+      setIsReady(true);
       return () => subscription.unsubscribe();
     }
 
