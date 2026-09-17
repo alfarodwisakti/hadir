@@ -14,7 +14,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { callAPI, DEFAULT_KELAS } from '../services/api';
-import { getStoredFaceEnrollments, loadFaceRecognitionModels, detectFaceDescriptor, averageFaceEmbedding, saveFaceEnrollment } from '../lib/faceRecognition';
+import { loadFaceRecognitionModels, detectFaceDescriptor, averageFaceEmbedding, saveFaceEnrollment } from '../lib/faceRecognition';
 import { Siswa } from '../types';
 
 export const SiswaView: React.FC = () => {
@@ -44,6 +44,8 @@ export const SiswaView: React.FC = () => {
   const [enrollStream, setEnrollStream] = useState<MediaStream | null>(null);
   const [enrollPreview, setEnrollPreview] = useState<string | null>(null);
   const [enrollSamples, setEnrollSamples] = useState<number[][]>([]);
+  const [enrollAngles, setEnrollAngles] = useState<Record<string, number[]>>({});
+  const [captureStep, setCaptureStep] = useState<'depan' | 'kiri' | 'kanan'>('depan');
   const [savingFace, setSavingFace] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -210,6 +212,14 @@ export const SiswaView: React.FC = () => {
     }
   };
 
+  const resetEnrollState = () => {
+    setEnrollSamples([]);
+    setEnrollAngles({});
+    setEnrollPreview(null);
+    setCaptureStep('depan');
+    setEnrollStatus('Siap untuk mendaftarkan wajah siswa.');
+  };
+
   const startEnrollCamera = async () => {
     if (!enrollTarget) return;
     try {
@@ -228,10 +238,21 @@ export const SiswaView: React.FC = () => {
         enrollVideoRef.srcObject = stream;
         await enrollVideoRef.play();
       }
-      setEnrollStatus('Kamera wajah aktif. Posisikan wajah pada kerangka lalu ambil foto.');
+      setEnrollStatus('Kamera wajah aktif. Posisikan wajah di dalam frame lalu ambil 3 sudut: depan, kiri, kanan.');
     } catch {
       setEnrollStatus('Izin kamera ditolak. Izinkan kamera untuk enroll wajah siswa.');
     }
+  };
+
+  const captureFrame = async (): Promise<string> => {
+    if (!enrollVideoRef) return '';
+    const canvas = document.createElement('canvas');
+    canvas.width = enrollVideoRef.videoWidth;
+    canvas.height = enrollVideoRef.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    ctx.drawImage(enrollVideoRef, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.82);
   };
 
   const captureEnrollSample = async () => {
@@ -248,30 +269,32 @@ export const SiswaView: React.FC = () => {
 
     const descriptor = await detectFaceDescriptor(enrollVideoRef);
     if (!descriptor) {
-      setEnrollStatus('Wajah tidak terdeteksi. Pastikan wajah berada di dalam bingkai dan pencahayaan cukup.');
+      setEnrollStatus('Wajah tidak terdeteksi. Pastikan wajah masuk ke dalam frame dan terlihat jelas.');
       return;
     }
 
     const nextSample = Array.from(descriptor);
-    setEnrollSamples(prev => [...prev, nextSample].slice(-5));
-    setEnrollPreview(enrollVideoRef.srcObject ? `data:image/jpeg;base64,${btoa(String.fromCharCode(...Array.from(new Uint8Array((await captureFrame()).slice(0, 120000)))) )}` : null);
-    setEnrollStatus(`Foto wajah berhasil ditangkap (${Math.min(enrollSamples.length + 1, 5)}/5). Lanjutkan sampai data cukup.`);
-  };
+    const stageOrder: Array<'depan' | 'kiri' | 'kanan'> = ['depan', 'kiri', 'kanan'];
+    const currentIndex = stageOrder.indexOf(captureStep);
+    const nextAngles = { ...enrollAngles, [captureStep]: nextSample };
 
-  const captureFrame = async (): Promise<string> => {
-    if (!enrollVideoRef) return '';
-    const canvas = document.createElement('canvas');
-    canvas.width = enrollVideoRef.videoWidth;
-    canvas.height = enrollVideoRef.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
-    ctx.drawImage(enrollVideoRef, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.8);
+    const updatedSamples = Object.values(nextAngles);
+    setEnrollAngles(nextAngles);
+    setEnrollSamples(updatedSamples);
+
+    const preview = await captureFrame();
+    setEnrollPreview(preview || null);
+
+    const nextStep = stageOrder[(currentIndex + 1) % stageOrder.length];
+    setCaptureStep(nextStep);
+
+    const capturedCount = Object.keys(nextAngles).length;
+    setEnrollStatus(`Sampel ${captureStep} berhasil ditangkap (${capturedCount}/3). Lanjut ke sudut ${nextStep}.`);
   };
 
   const saveFaceEnrollmentForStudent = async () => {
-    if (!enrollTarget || enrollSamples.length === 0) {
-      setEnrollStatus('Minimal satu sampel wajah harus ditangkap sebelum disimpan.');
+    if (!enrollTarget || Object.keys(enrollAngles).length === 0) {
+      setEnrollStatus('Minimal 1 sampel wajah harus ditangkap sebelum disimpan.');
       return;
     }
 
@@ -281,14 +304,15 @@ export const SiswaView: React.FC = () => {
       const res = await callAPI('enrollFace', {
         nomorQr: enrollTarget.nomorQr,
         nama: enrollTarget.nama,
-        embedding
+        embedding,
+        samples: enrollSamples,
+        angles: enrollAngles
       });
 
       if (res.success) {
         setEnrollStatus(`Data wajah ${enrollTarget.nama} berhasil disimpan. Saat absensi, metode Wajah bisa dipakai.`);
         showToast(`Data wajah ${enrollTarget.nama} berhasil disimpan.`, 'success');
-        setEnrollSamples([]);
-        setEnrollPreview(null);
+        resetEnrollState();
         stopEnrollCamera();
         setEnrollTarget(null);
       } else {
@@ -534,9 +558,8 @@ export const SiswaView: React.FC = () => {
                         <button
                           onClick={() => {
                             setEnrollTarget(s);
-                            setEnrollSamples([]);
-                            setEnrollPreview(null);
-                            setEnrollStatus(`Siap melakukan enrollment wajah untuk ${s.nama}.`);
+                            resetEnrollState();
+                            setEnrollStatus(`Siap melakukan enrollment wajah untuk ${s.nama}. Ambil foto depan, kiri, dan kanan.`);
                           }}
                           title="Enroll Wajah"
                           className="p-1.5 rounded-lg text-slate-600 hover:bg-violet-50 hover:text-violet-600 transition"
@@ -583,11 +606,14 @@ export const SiswaView: React.FC = () => {
                 <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-violet-600">Enrollment Wajah</div>
                 <h3 className="text-lg font-bold text-slate-900 mt-1">{enrollTarget.nama}</h3>
               </div>
-              <button onClick={() => { stopEnrollCamera(); setEnrollTarget(null); setEnrollSamples([]); setEnrollPreview(null); }} className="text-slate-500 hover:text-slate-800">✕</button>
+              <button onClick={() => { stopEnrollCamera(); setEnrollTarget(null); resetEnrollState(); }} className="text-slate-500 hover:text-slate-800">✕</button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 min-h-[260px] flex items-center justify-center">
+              <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 min-h-[280px] relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-[72%] h-[72%] rounded-[42%] border-2 border-dashed border-violet-300/80 shadow-[0_0_0_9999px_rgba(15,23,42,0.48)]" />
+                </div>
                 <video
                   ref={(node) => setEnrollVideoRef(node)}
                   className="w-full h-full object-cover"
@@ -598,7 +624,7 @@ export const SiswaView: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-xs text-slate-600 min-h-[150px] flex items-center justify-center">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-center text-xs text-slate-600 min-h-[160px] flex items-center justify-center">
                   {enrollPreview ? (
                     <img src={enrollPreview} alt="Preview wajah" className="w-full h-full object-cover rounded-xl" />
                   ) : (
@@ -610,14 +636,31 @@ export const SiswaView: React.FC = () => {
                   {enrollStatus}
                 </div>
 
+                <div className="grid grid-cols-3 gap-2">
+                  {['depan', 'kiri', 'kanan'].map((angle) => (
+                    <div
+                      key={angle}
+                      className={`rounded-xl border px-2 py-2 text-center text-[10px] font-bold uppercase tracking-[0.12em] ${
+                        captureStep === angle
+                          ? 'border-violet-500 bg-violet-600 text-white'
+                          : Object.prototype.hasOwnProperty.call(enrollAngles, angle)
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {angle === 'depan' ? 'Depan' : angle === 'kiri' ? 'Kiri' : 'Kanan'}
+                    </div>
+                  ))}
+                </div>
+
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={startEnrollCamera} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-2 rounded-xl text-xs">Buka Kamera</button>
-                  <button onClick={captureEnrollSample} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-3 py-2 rounded-xl text-xs">Ambil Sampel</button>
-                  <button onClick={saveFaceEnrollmentForStudent} disabled={savingFace || enrollSamples.length === 0} className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-3 py-2 rounded-xl text-xs">{savingFace ? 'Menyimpan...' : 'Simpan Wajah'}</button>
+                  <button onClick={captureEnrollSample} className="bg-violet-600 hover:bg-violet-500 text-white font-bold px-3 py-2 rounded-xl text-xs">Ambil {captureStep === 'depan' ? 'Depan' : captureStep === 'kiri' ? 'Kiri' : 'Kanan'}</button>
+                  <button onClick={saveFaceEnrollmentForStudent} disabled={savingFace || Object.keys(enrollAngles).length === 0} className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-3 py-2 rounded-xl text-xs">{savingFace ? 'Menyimpan...' : 'Simpan Wajah'}</button>
                 </div>
 
                 <div className="text-[11px] text-slate-500">
-                  Target: 3–5 foto dengan sudut berbeda untuk akurasi wajah yang lebih kuat.
+                  Wajib capture minimal 3 sudut wajah: depan, kiri, dan kanan agar verifikasi presensi lebih real dan akurat.
                 </div>
               </div>
             </div>

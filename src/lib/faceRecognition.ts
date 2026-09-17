@@ -2,6 +2,8 @@ export interface FaceEnrollment {
   nomorQr: string;
   nama: string;
   embedding: number[];
+  samples?: number[][];
+  angles?: Record<string, number[]>;
   createdAt: string;
 }
 
@@ -71,7 +73,11 @@ export function getStoredFaceEnrollments(): FaceEnrollment[] {
 export function saveFaceEnrollment(entry: FaceEnrollment): void {
   const existing = getStoredFaceEnrollments();
   const filtered = existing.filter(item => item.nomorQr !== entry.nomorQr);
-  filtered.push(entry);
+  filtered.push({
+    ...entry,
+    samples: entry.samples && entry.samples.length ? entry.samples : undefined,
+    angles: entry.angles && Object.keys(entry.angles).length ? entry.angles : undefined
+  });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
