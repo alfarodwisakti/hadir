@@ -355,7 +355,7 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
   }
 
   if (action === "simpanPresensi") {
-    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas } = payload;
+    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas, fotoWajah } = payload;
     const list = getLocalSiswa();
     const siswa = list.find(s => s.nomorQr.trim() === String(nomorQr).trim());
     if (!siswa) {
@@ -385,7 +385,8 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       kelas: kelas || siswa.kelas || DEFAULT_KELAS,
       status: finalStatus,
       metode: metode || "Scan",
-      keterangan: keterangan || ""
+      keterangan: keterangan || "",
+      fotoWajah: fotoWajah ? String(fotoWajah).trim() || undefined : undefined
     };
 
     records.unshift(newRecord);

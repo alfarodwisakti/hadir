@@ -36,7 +36,13 @@ export const PresensiView: React.FC = () => {
   const [notif, setNotif] = useState<{ message: string; isError: boolean; time: string } | null>(null);
   const [selectedFacing, setSelectedFacing] = useState<string>('environment');
   const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
+  const [requireFaceCheck, setRequireFaceCheck] = useState(true);
+  const [faceCaptureData, setFaceCaptureData] = useState<string | null>(null);
+  const [capturingFace, setCapturingFace] = useState(false);
+  const [faceStatus, setFaceStatus] = useState<string>('Siap untuk verifikasi wajah sebelum presensi disimpan.');
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const isCooldownRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -121,14 +127,73 @@ export const PresensiView: React.FC = () => {
     });
   };
 
+  const stopFaceCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const captureFaceSnapshot = async () => {
+    if (!videoRef.current || !videoRef.current.videoWidth || !videoRef.current.videoHeight) {
+      setFaceStatus('Kamera wajah belum siap. Coba mulai ulang kamera terlebih dahulu.');
+      return null;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      setFaceStatus('Gagal memproses foto wajah.');
+      return null;
+    }
+
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    setFaceCaptureData(dataUrl);
+    setFaceStatus('Foto wajah berhasil ditangkap dan siap untuk verifikasi.');
+    return dataUrl;
+  };
+
+  const startFaceCamera = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setFaceStatus('Browser ini tidak mendukung akses kamera wajah.');
+        return null;
+      }
+
+      stopFaceCamera();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: selectedFacing === 'user' ? 'user' : 'environment', width: 640, height: 480 },
+        audio: false
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setFaceStatus('Kamera wajah aktif. Pastikan wajah terlihat jelas sebelum menyimpan presensi.');
+      return stream;
+    } catch (err: any) {
+      console.error('Face camera error:', err);
+      setFaceStatus('Izin kamera wajah ditolak. Izinkan akses kamera untuk verifikasi presensi.');
+      return null;
+    }
+  };
+
   const handleAttendance = async (
     nomorQr: string,
     statusInput: StatusPresensi,
     metode: MetodePresensi,
     keterangan: string = "",
-    options: { playSuccessSound?: boolean; playErrorSound?: boolean } = {}
+    options: { playSuccessSound?: boolean; playErrorSound?: boolean; fotoWajah?: string | null } = {}
   ) => {
-    const { playSuccessSound = true, playErrorSound = true } = options;
+    const { playSuccessSound = true, playErrorSound = true, fotoWajah = null } = options;
     const nowJam = formatJam();
     const res = await callAPI("simpanPresensi", {
       nomorQr,
@@ -137,7 +202,8 @@ export const PresensiView: React.FC = () => {
       keterangan,
       kelas: DEFAULT_KELAS,
       tanggal: formatTanggal(),
-      jam: nowJam
+      jam: nowJam,
+      fotoWajah: fotoWajah || undefined
     });
 
     if (res.success) {
@@ -198,9 +264,19 @@ export const PresensiView: React.FC = () => {
           setScannerStatus(`Memproses kode: ${cleaned}...`);
           playBeep(true);
 
-          const result = await handleAttendance(cleaned, "Hadir", "Scan", "", {
+          const nextFaceImage = requireFaceCheck ? await captureFaceSnapshot() : null;
+          if (requireFaceCheck && !nextFaceImage) {
+            setTimeout(() => {
+              isCooldownRef.current = false;
+              setScannerStatus('Verifikasi wajah gagal. Coba ambil foto wajah dan ulangi scan.');
+            }, 1200);
+            return;
+          }
+
+          const result = await handleAttendance(cleaned, "Hadir", requireFaceCheck ? "Scan + Wajah" : "Scan", "", {
             playSuccessSound: false,
-            playErrorSound: false
+            playErrorSound: false,
+            fotoWajah: nextFaceImage || null
           });
 
           if (!result.success) {
@@ -219,6 +295,7 @@ export const PresensiView: React.FC = () => {
 
       setIsScanning(true);
       setScannerStatus('Scanner aktif. Arahkan barcode atau QR Code ke dalam kotak.');
+      await startFaceCamera();
     } catch (err: any) {
       console.error("Camera start error:", err);
       setIsScanning(false);
@@ -245,6 +322,7 @@ export const PresensiView: React.FC = () => {
         setScannerStatus('Scanner dihentikan.');
       }
     }
+    stopFaceCamera();
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -425,7 +503,7 @@ export const PresensiView: React.FC = () => {
                     </div>
                     <p className="text-sm font-semibold text-slate-100 mb-1">Kamera Siap Digunakan</p>
                     <p className="text-xs text-slate-400 max-w-xs mb-4">
-                      Arahkan barcode atau QR kartu pelajar 8.G untuk presensi instan.
+                      Arahkan barcode atau QR kartu pelajar 8.G untuk presensi instan dengan verifikasi wajah.
                     </p>
                     <button
                       onClick={startScanner}
@@ -436,6 +514,58 @@ export const PresensiView: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_150px] gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                    <span>Verifikasi Wajah</span>
+                    <label className="inline-flex items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={requireFaceCheck}
+                        onChange={(e) => setRequireFaceCheck(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Wajib
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-600">{faceStatus}</p>
+                </div>
+
+                <div className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={startFaceCamera}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Kamera Wajah
+                  </button>
+                </div>
+              </div>
+
+              {requireFaceCheck && (
+                <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr] gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="rounded-xl overflow-hidden bg-slate-900 border border-slate-700">
+                    <video ref={videoRef} className="w-full h-40 object-cover" playsInline muted autoPlay />
+                  </div>
+                  <div className="flex flex-col gap-2 justify-center">
+                    {faceCaptureData ? (
+                      <img src={faceCaptureData} alt="Wajah yang ditangkap" className="w-full h-40 object-cover rounded-xl border border-slate-200 bg-white" />
+                    ) : (
+                      <div className="flex w-full h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-[11px] text-slate-500 text-center px-3">
+                        Preview wajah akan muncul di sini setelah foto diambil.
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={captureFaceSnapshot}
+                      className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500"
+                    >
+                      Ambil Foto Wajah
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Status Bar */}
               <div className="flex items-center justify-between text-xs text-slate-500 px-1">
