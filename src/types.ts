@@ -7,7 +7,7 @@ export interface Siswa {
 }
 
 export type StatusPresensi = 'Hadir' | 'Terlambat' | 'Izin' | 'Sakit' | 'Alpa';
-export type MetodePresensi = 'Scan' | 'Manual' | 'Otomatis' | 'Scan + Wajah' | 'Wajah';
+export type MetodePresensi = 'Scan' | 'Manual' | 'Otomatis';
 
 export interface PresensiRecord {
   id: string;
@@ -19,7 +19,6 @@ export interface PresensiRecord {
   status: StatusPresensi;
   metode: MetodePresensi;
   keterangan: string;
-  fotoWajah?: string;
 }
 
 export interface UserSession {

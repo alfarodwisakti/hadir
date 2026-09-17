@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { callAPI, formatTanggal, formatJam, DEFAULT_KELAS } from '../services/api';
-import { getStoredFaceEnrollments, findBestFaceMatch, detectFaceDescriptor, loadFaceRecognitionModels } from '../lib/faceRecognition';
 import { Siswa, StatusPresensi, MetodePresensi } from '../types';
 
 interface SessionLogItem {
@@ -28,24 +27,15 @@ interface SessionLogItem {
 
 export const PresensiView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'scan' | 'manual'>('scan');
-  const [scanMode, setScanMode] = useState<'qr' | 'wajah'>('qr');
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [sessionLogs, setSessionLogs] = useState<SessionLogItem[]>([]);
-  const [faceStudentQuery, setFaceStudentQuery] = useState('');
-  const [faceStudentNomorQr, setFaceStudentNomorQr] = useState('');
-  const [faceStudentNama, setFaceStudentNama] = useState('');
-  const [faceSubmitting, setFaceSubmitting] = useState(false);
-  
+
   // Scanner state
   const [isScanning, setIsScanning] = useState(false);
   const [scannerStatus, setScannerStatus] = useState<string>('Tekan "Mulai Kamera" untuk mengaktifkan pemindaian barcode/QR.');
   const [notif, setNotif] = useState<{ message: string; isError: boolean; time: string } | null>(null);
   const [selectedFacing, setSelectedFacing] = useState<string>('environment');
   const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
-  const [requireFaceCheck, setRequireFaceCheck] = useState(true);
-  const [faceCaptureData, setFaceCaptureData] = useState<string | null>(null);
-  const [capturingFace, setCapturingFace] = useState(false);
-  const [faceStatus, setFaceStatus] = useState<string>('Siap untuk verifikasi wajah sebelum presensi disimpan.');
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -133,121 +123,14 @@ export const PresensiView: React.FC = () => {
     });
   };
 
-  const stopFaceCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  };
-
-  const handleFaceStudentSelect = (student: Siswa) => {
-    setFaceStudentNomorQr(student.nomorQr);
-    setFaceStudentNama(student.nama);
-    setFaceStudentQuery(`${student.nama} (${student.nomorQr})`);
-  };
-
-  const filteredFaceAutocomplete = faceStudentQuery.trim() === '' ? [] : siswaList.filter(s => {
-    const q = faceStudentQuery.toLowerCase();
-    return s.nama.toLowerCase().includes(q) || s.nomorQr.toLowerCase().includes(q);
-  }).slice(0, 6);
-
-  const captureFaceSnapshot = async () => {
-    if (!videoRef.current || !videoRef.current.videoWidth || !videoRef.current.videoHeight) {
-      setFaceStatus('Kamera wajah belum siap. Coba mulai ulang kamera terlebih dahulu.');
-      return null;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setFaceStatus('Gagal memproses foto wajah.');
-      return null;
-    }
-
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-    setFaceCaptureData(dataUrl);
-    setFaceStatus('Foto wajah berhasil ditangkap dan siap untuk verifikasi.');
-    return dataUrl;
-  };
-
-  const startFaceCamera = async () => {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setFaceStatus('Browser ini tidak mendukung akses kamera wajah.');
-        return null;
-      }
-
-      stopFaceCamera();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: selectedFacing === 'user' ? 'user' : 'environment', width: 640, height: 480 },
-        audio: false
-      });
-
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setFaceStatus('Kamera wajah aktif. Pastikan wajah terlihat jelas sebelum menyimpan presensi.');
-      return stream;
-    } catch (err: any) {
-      console.error('Face camera error:', err);
-      setFaceStatus('Izin kamera wajah ditolak. Izinkan akses kamera untuk verifikasi presensi.');
-      return null;
-    }
-  };
-
-  const verifyFaceForStudent = async (nomorQr: string): Promise<{ ok: boolean; message: string; distance?: number }> => {
-    const enrollments = getStoredFaceEnrollments().filter(item => item.nomorQr === String(nomorQr).trim());
-    if (!enrollments.length) {
-      return { ok: true, message: 'Tidak ada data wajah terdaftar untuk siswa ini, lanjutkan dengan barcode.' };
-    }
-
-    if (!videoRef.current) {
-      return { ok: false, message: 'Kamera wajah belum siap. Silakan aktifkan kamera wajah terlebih dahulu.' };
-    }
-
-    const modelLoaded = await loadFaceRecognitionModels();
-    if (!modelLoaded) {
-      return { ok: false, message: 'Pengenalan wajah belum siap di browser ini. Gunakan tombol barcode sebagai fallback.' };
-    }
-
-    const descriptor = await detectFaceDescriptor(videoRef.current);
-    if (!descriptor) {
-      return { ok: false, message: 'Wajah tidak terdeteksi. Pastikan wajah terlihat jelas dan coba lagi.' };
-    }
-
-    const match = findBestFaceMatch(descriptor, enrollments);
-    if (!match) {
-      return { ok: false, message: 'Data wajah siswa tidak dapat dicocokkan.' };
-    }
-
-    const threshold = 0.45;
-    if (match.distance > threshold) {
-      return {
-        ok: false,
-        message: `Wajah tidak cocok dengan data siswa (${match.distance.toFixed(2)}). Gunakan metode barcode.`,
-        distance: match.distance
-      };
-    }
-
-    return { ok: true, message: `Wajah cocok (${match.distance.toFixed(2)}).`, distance: match.distance };
-  };
-
   const handleAttendance = async (
     nomorQr: string,
     statusInput: StatusPresensi,
     metode: MetodePresensi,
     keterangan: string = "",
-    options: { playSuccessSound?: boolean; playErrorSound?: boolean; fotoWajah?: string | null } = {}
+    options: { playSuccessSound?: boolean; playErrorSound?: boolean } = {}
   ) => {
-    const { playSuccessSound = true, playErrorSound = true, fotoWajah = null } = options;
+    const { playSuccessSound = true, playErrorSound = true } = options;
     const nowJam = formatJam();
     const res = await callAPI("simpanPresensi", {
       nomorQr,
@@ -256,8 +139,7 @@ export const PresensiView: React.FC = () => {
       keterangan,
       kelas: DEFAULT_KELAS,
       tanggal: formatTanggal(),
-      jam: nowJam,
-      fotoWajah: fotoWajah || undefined
+      jam: nowJam
     });
 
     if (res.success) {
@@ -318,32 +200,9 @@ export const PresensiView: React.FC = () => {
           setScannerStatus(`Memproses kode: ${cleaned}...`);
           playBeep(true);
 
-          let nextFaceImage: string | null = null;
-          if (requireFaceCheck) {
-            nextFaceImage = await captureFaceSnapshot();
-            if (!nextFaceImage) {
-              setTimeout(() => {
-                isCooldownRef.current = false;
-                setScannerStatus('Verifikasi wajah gagal. Coba ambil foto wajah dan ulangi scan.');
-              }, 1200);
-              return;
-            }
-
-            const faceCheck = await verifyFaceForStudent(cleaned);
-            if (!faceCheck.ok) {
-              playBeep(false);
-              setTimeout(() => {
-                isCooldownRef.current = false;
-                setScannerStatus(faceCheck.message);
-              }, 1200);
-              return;
-            }
-          }
-
-          const result = await handleAttendance(cleaned, "Hadir", requireFaceCheck ? "Scan + Wajah" : "Scan", "", {
+          const result = await handleAttendance(cleaned, "Hadir", "Scan", "", {
             playSuccessSound: false,
-            playErrorSound: false,
-            fotoWajah: nextFaceImage || null
+            playErrorSound: false
           });
 
           if (!result.success) {
@@ -362,7 +221,6 @@ export const PresensiView: React.FC = () => {
 
       setIsScanning(true);
       setScannerStatus('Scanner aktif. Arahkan barcode atau QR Code ke dalam kotak.');
-      await startFaceCamera();
     } catch (err: any) {
       console.error("Camera start error:", err);
       setIsScanning(false);
@@ -389,7 +247,6 @@ export const PresensiView: React.FC = () => {
         setScannerStatus('Scanner dihentikan.');
       }
     }
-    stopFaceCamera();
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,47 +267,6 @@ export const PresensiView: React.FC = () => {
       showNotification('⚠️ Barcode/QR tidak terdeteksi pada gambar yang diunggah.', true);
     } finally {
       e.target.value = '';
-    }
-  };
-
-  // Manual Submit
-  const handleFacePresensiSubmit = async () => {
-    if (!faceStudentNomorQr) {
-      setFaceStatus('Pilih siswa terlebih dahulu sebelum verifikasi wajah.');
-      return;
-    }
-
-    setFaceSubmitting(true);
-    try {
-      const photo = await captureFaceSnapshot();
-      if (!photo) {
-        setFaceStatus('Gagal menangkap foto wajah. Pastikan kamera aktif dan wajah terlihat jelas.');
-        return;
-      }
-
-      const verified = await verifyFaceForStudent(faceStudentNomorQr);
-      if (!verified.ok) {
-        setFaceStatus(verified.message);
-        playBeep(false);
-        return;
-      }
-
-      const res = await handleAttendance(faceStudentNomorQr, 'Hadir', 'Wajah', 'Verifikasi wajah berhasil', {
-        playSuccessSound: true,
-        playErrorSound: false,
-        fotoWajah: photo
-      });
-
-      if (res.success) {
-        setFaceStatus(`Verifikasi wajah berhasil untuk ${faceStudentNama}. Presensi tersimpan dengan metode Wajah.`);
-        setFaceStudentNomorQr('');
-        setFaceStudentNama('');
-        setFaceStudentQuery('');
-      } else {
-        setFaceStatus(res.message || 'Presensi wajah gagal disimpan.');
-      }
-    } finally {
-      setFaceSubmitting(false);
     }
   };
 
@@ -517,7 +333,6 @@ export const PresensiView: React.FC = () => {
             id="tabScanBtn"
             onClick={() => {
               setActiveTab('scan');
-              setScanMode('qr');
             }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
               activeTab === 'scan'
@@ -552,270 +367,97 @@ export const PresensiView: React.FC = () => {
         <div className="lg:col-span-7 space-y-4">
           {activeTab === 'scan' ? (
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScanMode('qr')}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition ${
-                    scanMode === 'qr' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  QR Code / Barcode
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScanMode('wajah')}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition ${
-                    scanMode === 'wajah' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  Wajah
-                </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <select
+                    id="cameraSelector"
+                    value={selectedFacing}
+                    onChange={(e) => setSelectedFacing(e.target.value)}
+                    disabled={isScanning}
+                    className="w-full text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+                  >
+                    <option value="environment">📷 Kamera Belakang (Utama)</option>
+                    <option value="user">🤳 Kamera Depan (Selfie)</option>
+                    {availableCameras.map(cam => (
+                      <option key={cam.id} value={cam.id}>
+                        {cam.label || `Kamera ${cam.id.slice(0, 8)}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {!isScanning ? (
+                  <button
+                    id="btnStartScanner"
+                    onClick={startScanner}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-xs active:scale-95"
+                  >
+                    <Video className="w-4 h-4" />
+                    <span>Mulai Kamera QR</span>
+                  </button>
+                ) : (
+                  <button
+                    id="btnStopScanner"
+                    onClick={stopScanner}
+                    className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-xs active:scale-95"
+                  >
+                    <Square className="w-4 h-4" />
+                    <span>Hentikan Kamera</span>
+                  </button>
+                )}
+
+                <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Foto QR</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                </label>
               </div>
 
-              {scanMode === 'qr' ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex-1 min-w-[200px]">
-                      <select
-                        id="cameraSelector"
-                        value={selectedFacing}
-                        onChange={(e) => setSelectedFacing(e.target.value)}
-                        disabled={isScanning}
-                        className="w-full text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
-                      >
-                        <option value="environment">📷 Kamera Belakang (Utama)</option>
-                        <option value="user">🤳 Kamera Depan (Selfie)</option>
-                        {availableCameras.map(cam => (
-                          <option key={cam.id} value={cam.id}>
-                            {cam.label || `Kamera ${cam.id.slice(0, 8)}`}
-                          </option>
-                        ))}
-                      </select>
+              <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center min-h-[300px]">
+                <div id="reader" className="w-full h-full max-w-[420px]" />
+                {!isScanning && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 text-slate-200">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-3">
+                      <Camera className="w-7 h-7" />
                     </div>
-
-                    {!isScanning ? (
-                      <button
-                        id="btnStartScanner"
-                        onClick={startScanner}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-xs active:scale-95"
-                      >
-                        <Video className="w-4 h-4" />
-                        <span>Mulai Kamera QR</span>
-                      </button>
-                    ) : (
-                      <button
-                        id="btnStopScanner"
-                        onClick={stopScanner}
-                        className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-xs active:scale-95"
-                      >
-                        <Square className="w-4 h-4" />
-                        <span>Hentikan Kamera</span>
-                      </button>
-                    )}
-
-                    <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Upload Foto QR</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-                    </label>
-                  </div>
-
-                  <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center min-h-[300px]">
-                    <div id="reader" className="w-full h-full max-w-[420px]" />
-                    {!isScanning && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 text-slate-200">
-                        <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-3">
-                          <Camera className="w-7 h-7" />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-100 mb-1">Scanner QR siap</p>
-                        <p className="text-xs text-slate-400 max-w-xs mb-4">
-                          Arahkan barcode atau QR untuk presensi cepat dan akurat.
-                        </p>
-                        <button
-                          onClick={startScanner}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/20"
-                        >
-                          Buka Scanner QR
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_150px] gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">
-                        <span>Verifikasi Wajah</span>
-                        <label className="inline-flex items-center gap-2 font-medium">
-                          <input
-                            type="checkbox"
-                            checked={requireFaceCheck}
-                            onChange={(e) => setRequireFaceCheck(e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          Wajib
-                        </label>
-                      </div>
-                      <p className="text-xs text-slate-600">{faceStatus}</p>
-                    </div>
-
-                    <div className="flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={startFaceCamera}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                      >
-                        Kamera Wajah
-                      </button>
-                    </div>
-                  </div>
-
-                  {requireFaceCheck && (
-                    <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr] gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="rounded-xl overflow-hidden bg-slate-900 border border-slate-700 relative">
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-[68%] h-[68%] rounded-[36%] border-2 border-dashed border-blue-300/80 shadow-[0_0_0_9999px_rgba(2,6,23,0.58)]" />
-                        </div>
-                        <video ref={videoRef} className="w-full h-40 object-cover" playsInline muted autoPlay />
-                      </div>
-                      <div className="flex flex-col gap-2 justify-center">
-                        {faceCaptureData ? (
-                          <img src={faceCaptureData} alt="Wajah yang ditangkap" className="w-full h-40 object-cover rounded-xl border border-slate-200 bg-white" />
-                        ) : (
-                          <div className="flex w-full h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-[11px] text-slate-500 text-center px-3">
-                            Preview wajah akan muncul setelah foto diambil.
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={captureFaceSnapshot}
-                          className="w-full rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500"
-                        >
-                          Ambil Foto Wajah
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between text-xs text-slate-500 px-1">
-                    <span className="font-medium truncate">{scannerStatus}</span>
-                    <span className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0 ml-2">
-                      <Volume2 className="w-3.5 h-3.5" /> Audio Suara Aktif
-                    </span>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100">
-                    <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Tes Cepat Barcode Siswa:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {siswaList.slice(0, 6).map(s => (
-                        <button
-                          key={s.nomorQr}
-                          onClick={() => handleAttendance(s.nomorQr, "Hadir", "Scan", "Simulasi Scan")}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 transition font-mono"
-                        >
-                          {s.nomorQr} - {s.nama.split(' ')[0]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-xs text-violet-800">
-                    Sistem wajah dipisah dari QR. Pilih siswa, lalu lakukan verifikasi wajah dengan frame yang mengarahkan wajah ke depan, kiri, dan kanan.
-                  </div>
-
-                  <div className="relative rounded-2xl overflow-hidden bg-slate-950 border border-violet-300 min-h-[320px]">
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                      <div className="w-[72%] h-[72%] rounded-[42%] border-2 border-dashed border-violet-300/90 shadow-[0_0_0_9999px_rgba(15,23,42,0.52)]" />
-                    </div>
-                    <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr] gap-3">
-                    <div className="space-y-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600">Pilih Siswa</label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={faceStudentQuery}
-                          onChange={(e) => {
-                            setFaceStudentQuery(e.target.value);
-                            if (faceStudentNomorQr && !e.target.value.includes(faceStudentNama)) {
-                              setFaceStudentNomorQr('');
-                              setFaceStudentNama('');
-                            }
-                          }}
-                          placeholder="Cari nama atau nomor QR siswa..."
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500 outline-hidden"
-                        />
-                        {filteredFaceAutocomplete.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
-                            {filteredFaceAutocomplete.map(student => (
-                              <button
-                                key={student.nomorQr}
-                                type="button"
-                                onClick={() => handleFaceStudentSelect(student)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-violet-50 text-sm flex items-center justify-between gap-3 border-b border-slate-100 last:border-b-0"
-                              >
-                                <span className="font-semibold text-slate-800">{student.nama}</span>
-                                <span className="text-xs font-mono text-violet-700 bg-violet-100 px-2 py-0.5 rounded">{student.nomorQr}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={startFaceCamera}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                      >
-                        Buka Kamera Wajah
-                      </button>
-                      <button
-                        type="button"
-                        onClick={captureFaceSnapshot}
-                        className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2.5 text-xs"
-                      >
-                        Ambil Foto
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-violet-50 border border-violet-200 p-3 text-[11px] leading-relaxed text-violet-800 font-medium">
-                    {faceStatus || 'Posisikan wajah di dalam frame. Verifikasi akan dilakukan dengan wajah depan, kiri, dan kanan.'}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
+                    <p className="text-sm font-semibold text-slate-100 mb-1">Scanner QR siap</p>
+                    <p className="text-xs text-slate-400 max-w-xs mb-4">
+                      Arahkan barcode atau QR untuk presensi cepat dan akurat.
+                    </p>
                     <button
-                      type="button"
-                      onClick={handleFacePresensiSubmit}
-                      disabled={faceSubmitting || !faceStudentNomorQr}
-                      className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-bold px-4 py-2.5 rounded-xl text-xs"
+                      onClick={startScanner}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-600/20"
                     >
-                      {faceSubmitting ? 'Memverifikasi...' : 'Verifikasi Wajah & Simpan Presensi'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFaceStudentNomorQr('');
-                        setFaceStudentNama('');
-                        setFaceStudentQuery('');
-                        setFaceStatus('Pilih siswa dan lakukan verifikasi wajah dengan frame yang benar.');
-                      }}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl text-xs"
-                    >
-                      Reset Siswa
+                      Buka Scanner QR
                     </button>
                   </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                <span className="font-medium truncate">{scannerStatus}</span>
+                <span className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0 ml-2">
+                  <Volume2 className="w-3.5 h-3.5" /> Audio Suara Aktif
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Tes Cepat Barcode Siswa:</span>
                 </div>
-              )}
+                <div className="flex flex-wrap gap-1.5">
+                  {siswaList.slice(0, 6).map(s => (
+                    <button
+                      key={s.nomorQr}
+                      onClick={() => handleAttendance(s.nomorQr, "Hadir", "Scan", "Simulasi Scan")}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 transition font-mono"
+                    >
+                      {s.nomorQr} - {s.nama.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : (
             /* Manual Input Form */
