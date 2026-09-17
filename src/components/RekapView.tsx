@@ -244,291 +244,182 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
     return <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Sangat Baik</span>;
   };
 
+  const isSingleDay = tglMulai === tglSelesai;
+
+  const reportRows = filteredStudents.length > 0 ? filteredStudents : data.perSiswa;
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500 font-bold">Laporan Presensi</div>
-            <h1 className="text-2xl font-black text-slate-800 mt-1">{isVisitor ? 'Rekap Kehadiran Publik' : 'REKAP PRESENSI DIGITAL 8.G'}</h1>
-            <p className="text-xs text-slate-500 mt-1">{isVisitor ? 'Pantau perkembangan kehadiran kelas 8.G secara transparan dan mudah dibaca.' : 'Periode ' + tglMulai + ' sampai ' + tglSelesai}</p>
-          </div>
-
-          <button
-            id="btnExportExcel"
-            onClick={exportToExcel}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md shadow-emerald-600/20 self-start lg:self-auto"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>{isVisitor ? 'Unduh Ringkasan' : 'Export Excel (.xlsx)'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Card */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span>Filter Periode Tanggal</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
+    <div className="space-y-4 max-w-6xl mx-auto">
+      <div className="bg-white border border-slate-300 shadow-[0_0_0_1px_rgba(148,163,184,0.14)] p-3 sm:p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-slate-200">
+            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-600">Laporan Presensi</div>
             <button
-              onClick={() => setPreset('today')}
-              className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
+              id="btnExportExcel"
+              onClick={exportToExcel}
+              className="flex items-center gap-2 bg-[#1f6f43] hover:bg-[#195c39] text-white font-bold px-3 py-2 text-[11px] transition"
             >
-              Hari Ini
-            </button>
-            <button
-              onClick={() => setPreset('7days')}
-              className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
-            >
-              7 Hari Terakhir
-            </button>
-            <button
-              onClick={() => setPreset('month')}
-              className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition"
-            >
-              Bulan Ini
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Export Excel</span>
             </button>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-          <div className="sm:col-span-4">
-            <label className="block text-xs font-bold text-slate-600 mb-1">Dari Tanggal</label>
-            <input
-              id="inputTglMulai"
-              type="date"
-              value={tglMulai}
-              onChange={(e) => setTglMulai(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
-            />
-          </div>
-
-          <div className="sm:col-span-4">
-            <label className="block text-xs font-bold text-slate-600 mb-1">Sampai Tanggal</label>
-            <input
-              id="inputTglSelesai"
-              type="date"
-              value={tglSelesai}
-              onChange={(e) => setTglSelesai(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-700 font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
-            />
-          </div>
-
-          <div className="sm:col-span-4 flex gap-2">
-            <button
-              id="btnFilterRekap"
-              onClick={loadRekap}
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition shadow-xs flex items-center justify-center gap-2"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>{loading ? 'Memuat Data...' : 'Tampilkan Rekap'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {isVisitor && (
-        <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl p-5 text-white shadow-lg shadow-emerald-500/20">
-          <div className="text-xs uppercase tracking-[0.2em] text-emerald-100">Kondisi Hari Ini</div>
-          <div className="mt-3 text-3xl font-black">{persenHadirOverall}%</div>
-          <div className="mt-2 text-sm text-emerald-50">Rata-rata kehadiran siswa kelas {DEFAULT_KELAS}</div>
-        </div>
-      )}
-
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 mb-2 flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" /> Hadir
-          </div>
-          <div className="text-3xl font-black text-slate-800">{data.totalHadir}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Kehadiran tercatat</div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600 mb-2 flex items-center gap-1.5">
-            <Clock className="w-4 h-4" /> Izin
-          </div>
-          <div className="text-3xl font-black text-slate-800">{data.totalIzin}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Izin terkonfirmasi</div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-600 mb-2 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> Sakit
-          </div>
-          <div className="text-3xl font-black text-slate-800">{data.totalSakit}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Keterangan sakit</div>
-        </div>
-
-        <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 mb-2 flex items-center gap-1.5">
-            <XCircle className="w-4 h-4" /> Alpa
-          </div>
-          <div className="text-3xl font-black text-slate-800">{data.totalAlpa}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Tanpa keterangan</div>
-        </div>
-      </div>
-
-      {/* Visual Chart Breakdown */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">Distribusi Kehadiran Kelas {DEFAULT_KELAS}</h2>
-            <p className="text-xs text-slate-500">Persentase rata-rata kehadiran: <span className="font-bold text-blue-600">{persenHadirOverall}%</span></p>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-            {totalLogs} Total Catatan
-          </span>
-        </div>
-
-        {/* Progress Bar Breakdown */}
-        {totalLogs > 0 ? (
-          <div className="space-y-3">
-            <div className="h-6 w-full bg-slate-100 rounded-xl overflow-hidden flex shadow-inner">
-              {data.totalHadir > 0 && (
-                <div 
-                  style={{ width: `${(data.totalHadir / totalLogs) * 100}%` }}
-                  className="bg-emerald-500 h-full transition-all"
-                  title={`Hadir: ${data.totalHadir}`}
-                />
-              )}
-              {data.totalIzin > 0 && (
-                <div 
-                  style={{ width: `${(data.totalIzin / totalLogs) * 100}%` }}
-                  className="bg-blue-500 h-full transition-all"
-                  title={`Izin: ${data.totalIzin}`}
-                />
-              )}
-              {data.totalSakit > 0 && (
-                <div 
-                  style={{ width: `${(data.totalSakit / totalLogs) * 100}%` }}
-                  className="bg-purple-500 h-full transition-all"
-                  title={`Sakit: ${data.totalSakit}`}
-                />
-              )}
-              {data.totalAlpa > 0 && (
-                <div 
-                  style={{ width: `${(data.totalAlpa / totalLogs) * 100}%` }}
-                  className="bg-rose-500 h-full transition-all"
-                  title={`Alpa: ${data.totalAlpa}`}
-                />
-              )}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+            <div className="sm:col-span-4">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Dari Tanggal</label>
+              <input
+                id="inputTglMulai"
+                type="date"
+                value={tglMulai}
+                onChange={(e) => setTglMulai(e.target.value)}
+                className="w-full border border-slate-300 bg-white px-2 py-2 text-[12px] text-slate-700 focus:outline-none"
+              />
             </div>
 
-            <div className="flex flex-wrap gap-4 text-xs font-medium text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span>Hadir ({Math.round((data.totalHadir / totalLogs) * 100)}%)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-blue-500" />
-                <span>Izin ({Math.round((data.totalIzin / totalLogs) * 100)}%)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-purple-500" />
-                <span>Sakit ({Math.round((data.totalSakit / totalLogs) * 100)}%)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-rose-500" />
-                <span>Alpa ({Math.round((data.totalAlpa / totalLogs) * 100)}%)</span>
-              </div>
+            <div className="sm:col-span-4">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Sampai Tanggal</label>
+              <input
+                id="inputTglSelesai"
+                type="date"
+                value={tglSelesai}
+                onChange={(e) => setTglSelesai(e.target.value)}
+                className="w-full border border-slate-300 bg-white px-2 py-2 text-[12px] text-slate-700 focus:outline-none"
+              />
+            </div>
+
+            <div className="sm:col-span-4 flex gap-2">
+              <button
+                id="btnFilterRekap"
+                onClick={loadRekap}
+                disabled={loading}
+                className="w-full bg-[#1f497d] hover:bg-[#173b69] text-white font-bold py-2 px-3 text-[12px] transition"
+              >
+                <span>{loading ? 'Memuat Data...' : 'Tampilkan Rekap'}</span>
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="py-6 text-center text-xs text-slate-400">
-            Tidak ada catatan kehadiran pada periode tanggal yang dipilih.
-          </div>
-        )}
-      </div>
 
-      {/* Rekap per Siswa Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60">
-          <div>
-            <h2 className="text-sm font-black text-slate-800 uppercase tracking-[0.12em]">Tabel Rekap Kehadiran</h2>
-            <p className="text-xs text-slate-500">Siswa dengan kehadiran di bawah 75% ditandai khusus</p>
-          </div>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setPreset('today')} className="border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">Hari Ini</button>
+              <button onClick={() => setPreset('7days')} className="border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">7 Hari</button>
+              <button onClick={() => setPreset('month')} className="border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">Bulan Ini</button>
+            </div>
 
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="Cari siswa..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            <div className="relative w-full max-w-xs">
+              <input
+                type="text"
+                placeholder="Cari siswa..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border border-slate-300 bg-white px-2 py-1.5 pl-8 text-[12px] text-slate-700 focus:outline-none"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-separate border-spacing-0">
-            <thead>
-              <tr className="bg-slate-100 text-slate-700 font-black border-b border-slate-200 text-[11px] uppercase tracking-[0.12em]">
-                <th className="py-3 px-4 border-b border-slate-200 text-center">No</th>
-                <th className="py-3 px-4 border-b border-slate-200">Nama Siswa</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-center">Nomor QR</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-center">Hadir</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-center">Izin</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-center">Sakit</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-center">Alpa</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-right">% Kehadiran</th>
-                <th className="py-3 px-4 border-b border-slate-200 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredStudents.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-10 text-center text-slate-400 text-xs">
-                    <HelpCircle className="w-6 h-6 mx-auto mb-2 text-slate-300" />
-                    Tidak ada data siswa yang cocok dengan filter pencarian.
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((s, index) => {
-                  const isLow = s.persenHadir < 75;
-                  return (
-                    <tr 
-                      key={s.nomorQr} 
-                      className={`hover:bg-slate-50/80 transition ${isLow ? 'bg-rose-50/40' : ''}`}
-                    >
-                      <td className="py-3 px-4 text-center text-slate-600 font-semibold border-b border-slate-100">{index + 1}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-800 border-b border-slate-100">
-                        <div className="flex items-center gap-2">
-                          <span>{s.nama}</span>
-                          {isLow && (
-                            <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">
-                              &lt;75%
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono text-xs font-semibold text-blue-600 border-b border-slate-100">{s.nomorQr}</td>
-                      <td className="py-3 px-4 text-center font-bold text-emerald-600 border-b border-slate-100">{s.hadir}</td>
-                      <td className="py-3 px-4 text-center text-slate-600 border-b border-slate-100">{s.izin}</td>
-                      <td className="py-3 px-4 text-center text-slate-600 border-b border-slate-100">{s.sakit}</td>
-                      <td className="py-3 px-4 text-center font-bold text-rose-600 border-b border-slate-100">{s.alpa}</td>
-                      <td className="py-3 px-4 text-right border-b border-slate-100">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full font-black text-xs ${
-                          isLow ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {s.persenHadir}%
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center border-b border-slate-100">{getStatusPill(s.persenHadir)}</td>
+      <div className="sheet-report bg-white border border-slate-300 shadow-[0_0_0_1px_rgba(148,163,184,0.18)] overflow-hidden font-['Arial','Helvetica',sans-serif] text-slate-900">
+        <div className="px-3 py-3 sm:px-5 sm:py-5">
+          <div className="text-[18px] font-bold leading-none">{isSingleDay ? 'REKAP PRESENSI (HARIAN)' : 'REKAP PRESENSI (MINGGUAN)'}</div>
+          <div className="mt-2 text-[18px] font-bold">KELAS 8.G TAHUN AJARAN 2026/2027</div>
+          <div className="mt-2 text-[18px] font-bold">SMP NEGERI 18 PADANG</div>
+
+          {isSingleDay ? (
+            <>
+              <div className="mt-6 text-[13px] font-bold">Hari/Tanggal: {tglMulai}</div>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full border-collapse border border-[#000] text-[12px]">
+                  <thead>
+                    <tr>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" style={{ width: 60 }}>No.</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" style={{ width: 220 }}>Nama Siswa</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" style={{ width: 90 }}>kelas</th>
+                      <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900" colSpan={4}>Status Presensi</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" style={{ width: 100 }}>%Kehadiran</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" style={{ width: 120 }}>Status Evaluasi</th>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                    <tr>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white"></th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white"></th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white"></th>
+                      <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Hadir</th>
+                      <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Izin</th>
+                      <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Sakit</th>
+                      <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Alpa</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white"></th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportRows.map((s, index) => (
+                      <tr key={s.nomorQr}>
+                        <td className="border border-[#000] px-2 py-2 text-center font-bold">{index + 1}</td>
+                        <td className="border border-[#000] px-2 py-2 font-normal">{s.nama}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{DEFAULT_KELAS}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{s.hadir}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{s.izin}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{s.sakit}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{s.alpa}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center font-bold">{s.persenHadir}%</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{s.persenHadir < 75 ? 'Perlu Perhatian (<75%)' : 'Baik'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-6 text-[13px] font-bold">Minggu Ke- : &nbsp;&nbsp; Bulan : &nbsp;&nbsp; Tahun :</div>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full border-collapse border border-[#000] text-[12px]">
+                  <thead>
+                    <tr>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" rowSpan={2} style={{ width: 60 }}>No.</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" rowSpan={2} style={{ width: 220 }}>Nama Siswa</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" rowSpan={2} style={{ width: 90 }}>kelas</th>
+                      <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900" colSpan={20}>STATUS PRESENSI</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" rowSpan={2} style={{ width: 100 }}>%Kehadiran</th>
+                      <th className="border border-[#000] bg-[#1f497d] px-2 py-2 text-center font-bold text-white" rowSpan={2} style={{ width: 140 }}>Status Evaluasi</th>
+                    </tr>
+                    <tr>
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <React.Fragment key={idx}>
+                          <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">{`(Hari/Tanggal)`}</th>
+                          <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Hadir</th>
+                          <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Izin</th>
+                          <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Sakit</th>
+                          <th className="border border-[#000] bg-[#d9e2f3] px-2 py-2 text-center font-bold text-slate-900">Alpa</th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportRows.map((s, index) => (
+                      <tr key={s.nomorQr}>
+                        <td className="border border-[#000] px-2 py-2 text-center font-bold">{index + 1}</td>
+                        <td className="border border-[#000] px-2 py-2">{s.nama}</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{DEFAULT_KELAS}</td>
+                        {Array.from({ length: 5 }).map((_, groupIndex) => (
+                          <React.Fragment key={`${s.nomorQr}-${groupIndex}`}>
+                            <td className="border border-[#000] px-2 py-2 text-center">{groupIndex === 0 ? '' : ''}</td>
+                            <td className="border border-[#000] px-2 py-2 text-center">{groupIndex === 0 ? s.hadir : ''}</td>
+                            <td className="border border-[#000] px-2 py-2 text-center">{groupIndex === 0 ? s.izin : ''}</td>
+                            <td className="border border-[#000] px-2 py-2 text-center">{groupIndex === 0 ? s.sakit : ''}</td>
+                            <td className="border border-[#000] px-2 py-2 text-center">{groupIndex === 0 ? s.alpa : ''}</td>
+                          </React.Fragment>
+                        ))}
+                        <td className="border border-[#000] px-2 py-2 text-center font-bold">{s.persenHadir}%</td>
+                        <td className="border border-[#000] px-2 py-2 text-center">{s.persenHadir < 75 ? 'Perlu Perhatian (<75%)' : 'Baik'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
