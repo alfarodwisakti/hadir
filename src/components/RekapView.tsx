@@ -84,6 +84,98 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
     }
   };
 
+  const buildDateSequence = (start: string, end: string) => {
+    const normalizedStart = start || end;
+    const normalizedEnd = end || start;
+    const [sy, sm, sd] = normalizedStart.split('-').map(Number);
+    const [ey, em, ed] = normalizedEnd.split('-').map(Number);
+    const startDate = new Date(sy, (sm || 1) - 1, sd || 1);
+    const endDate = new Date(ey, (em || 1) - 1, ed || 1);
+    const out: string[] = [];
+    const cursor = new Date(startDate);
+    while (cursor <= endDate) {
+      const y = cursor.getFullYear();
+      const m = String(cursor.getMonth() + 1).padStart(2, '0');
+      const d = String(cursor.getDate()).padStart(2, '0');
+      out.push(`${y}-${m}-${d}`);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
+  };
+
+  const buildDailySheetRows = () => {
+    const rows: any[][] = [
+      ['REKAP PRESENSI (HARIAN)', '', '', '', '', '', '', ''],
+      ['KELAS 8.G TAHUN AJARAN 2026/2027', '', '', '', '', '', '', ''],
+      ['SMP NEGERI 18 PADANG', '', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', '', ''],
+      ['Hari/Tanggal:', '', '', '', '', '', '', ''],
+      ['', '', '', '', '', '', '', ''],
+      ['No.', 'Nama Siswa', 'kelas', 'Status Presensi', '', '', '', '%Kehadiran', 'Status Evaluasi'],
+      ['', '', '', 'Hadir', 'Izin', 'Sakit', 'Alpa', '', '']
+    ];
+
+    const dateLabel = tglMulai === tglSelesai ? `Hari/Tanggal: ${tglMulai}` : `Hari/Tanggal: ${tglMulai} s/d ${tglSelesai}`;
+    rows[4][0] = dateLabel;
+
+    const studentRows = filteredStudents.length > 0 ? filteredStudents : data.perSiswa;
+    studentRows.forEach((s, index) => {
+      const row = [index + 1, s.nama, DEFAULT_KELAS, s.hadir, s.izin, s.sakit, s.alpa, `${s.persenHadir}%`, s.persenHadir < 75 ? 'Perlu Perhatian (<75%)' : 'Baik'];
+      rows.push(row);
+    });
+
+    return rows;
+  };
+
+  const buildWeeklySheetRows = () => {
+    const dates = buildDateSequence(tglMulai, tglSelesai);
+    const rowCount = 11 + Math.max(data.perSiswa.length, filteredStudents.length, 1);
+    const rows: any[][] = Array.from({ length: rowCount }, () => Array(28).fill(''));
+
+    rows[0][0] = 'REKAP PRESENSI (MINGGUAN)';
+    rows[1][0] = 'KELAS 8.G TAHUN AJARAN 2026/2027';
+    rows[2][0] = 'SMP NEGERI 18 PADANG';
+    rows[4][0] = 'Minggu Ke- :';
+    rows[5][0] = 'Bulan :';
+    rows[6][0] = 'Tahun :';
+
+    rows[8][0] = 'No.';
+    rows[8][1] = 'Nama Siswa';
+    rows[8][2] = 'kelas';
+    rows[8][3] = 'STATUS PRESENSI';
+    rows[8][23] = '%Kehadiran';
+    rows[8][24] = 'Status  Evaluasi';
+
+    const statusStartColumn = 3;
+    dates.slice(0, 5).forEach((date, index) => {
+      const groupStart = statusStartColumn + index * 5;
+      rows[9][groupStart] = '(Hari/Tanggal)';
+      rows[10][groupStart] = 'Hadir';
+      rows[10][groupStart + 1] = 'Izin';
+      rows[10][groupStart + 2] = 'Sakit';
+      rows[10][groupStart + 3] = 'Alpa';
+      rows[9][groupStart + 4] = date;
+    });
+
+    const studentRows = filteredStudents.length > 0 ? filteredStudents : data.perSiswa;
+    studentRows.forEach((s, index) => {
+      const rowIndex = 11 + index;
+      rows[rowIndex][0] = index + 1;
+      rows[rowIndex][1] = s.nama;
+      rows[rowIndex][2] = DEFAULT_KELAS;
+      rows[rowIndex][23] = `${s.persenHadir}%`;
+      rows[rowIndex][24] = s.persenHadir < 75 ? 'Perlu Perhatian (<75%)' : 'Baik';
+
+      const statusDefault = [s.hadir, s.izin, s.sakit, s.alpa];
+      const firstGroupStart = 3;
+      statusDefault.forEach((value, statusIndex) => {
+        rows[rowIndex][firstGroupStart + statusIndex] = value;
+      });
+    });
+
+    return rows;
+  };
+
   // Export to Excel .xlsx using SheetJS
   const exportToExcel = () => {
     if (!data.perSiswa || data.perSiswa.length === 0) {
@@ -91,37 +183,45 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
       return;
     }
 
-    const exportRows = data.perSiswa.map(s => ({
-      "Nomor QR": s.nomorQr,
-      "Nama Siswa": s.nama,
-      "Kelas": DEFAULT_KELAS,
-      "Hadir": s.hadir,
-      "Izin": s.izin,
-      "Sakit": s.sakit,
-      "Alpa": s.alpa,
-      "% Kehadiran": `${s.persenHadir}%`,
-      "Status Evaluasi": s.persenHadir < 75 ? "Perlu Perhatian (<75%)" : "Baik"
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const isDaily = tglMulai === tglSelesai;
+    const rows = isDaily ? buildDailySheetRows() : buildWeeklySheetRows();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Rekap 8.G`);
+    XLSX.utils.book_append_sheet(wb, ws, isDaily ? 'REKAP HARIAN' : 'REKAP MINGGUAN');
 
-    // Auto-fit column widths
-    const max_width = exportRows.reduce((w, r) => Math.max(w, r["Nama Siswa"].length), 10);
     ws['!cols'] = [
-      { wch: 12 }, // Nomor QR
-      { wch: Math.max(max_width + 4, 20) }, // Nama
-      { wch: 8 },  // Kelas
-      { wch: 8 },  // Hadir
-      { wch: 8 },  // Izin
-      { wch: 8 },  // Sakit
-      { wch: 8 },  // Alpa
-      { wch: 14 }, // % Kehadiran
-      { wch: 22 }  // Status Evaluasi
+      { wch: 10 },
+      { wch: 28 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 }
     ];
 
-    const fileName = `Rekap-Presensi-8G_${tglMulai}_sd_${tglSelesai}.xlsx`;
+    const fileName = `Rekap-Presensi-${isDaily ? 'Harian' : 'Mingguan'}_${tglMulai}${isDaily ? '' : `-sd-${tglSelesai}`}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 

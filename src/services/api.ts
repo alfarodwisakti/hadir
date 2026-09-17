@@ -478,16 +478,18 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
           };
         }
 
-        if (r.status === "Hadir" || r.status === "Terlambat") {
+        const status = r.status === "Terlambat" ? "Hadir" : r.status;
+
+        if (status === "Hadir") {
           rekapMap[r.nomorQr].hadir++;
           totalHadir++;
-        } else if (r.status === "Izin") {
+        } else if (status === "Izin") {
           rekapMap[r.nomorQr].izin++;
           totalIzin++;
-        } else if (r.status === "Sakit") {
+        } else if (status === "Sakit") {
           rekapMap[r.nomorQr].sakit++;
           totalSakit++;
-        } else if (r.status === "Alpa") {
+        } else if (status === "Alpa") {
           rekapMap[r.nomorQr].alpa++;
           totalAlpa++;
         }
@@ -500,7 +502,6 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       return { ...s, persenHadir };
     });
 
-    // sort alphabetically by name
     perSiswa.sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 
     const data: RekapPeriodeData = {
