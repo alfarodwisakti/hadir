@@ -99,98 +99,135 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 flex flex-col justify-center items-center p-4 sm:p-6">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-3xl p-8 shadow-2xl border border-slate-100 space-y-6">
-          {/* Logo & Header */}
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-xl shadow-blue-500/25">
-              <GraduationCap className="w-9 h-9" />
-            </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Presensi Digital 8.G</h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Sistem Absensi &amp; Rekapitulasi Kehadiran Siswa
+    <div className="min-h-screen relative overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),transparent_20%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.25),transparent_30%),linear-gradient(135deg,#020817_0%,#0f172a_30%,#111827_100%)] flex flex-col justify-center items-center p-4 sm:p-6">
+      <div className="absolute inset-0 opacity-70">
+        <div className="absolute left-10 top-16 h-32 w-32 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="absolute right-12 bottom-16 h-40 w-40 rounded-full bg-violet-500/15 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:36px_36px] mask-[radial-gradient(circle_at_center,black_48%,transparent_100%)]" />
+      </div>
+
+      <div className="w-full max-w-5xl relative z-10 grid gap-6 lg:grid-cols-[1.15fr_0.85fr] items-center">
+        <div className="hidden lg:flex flex-col gap-5 rounded-[32px] border border-cyan-300/10 bg-slate-950/35 p-8 backdrop-blur-xl shadow-[0_30px_80px_rgba(15,23,42,0.7)]">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
+            Smart School
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-4xl font-black leading-tight text-white">
+              Presensi Digital<br />
+              <span className="bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-300 bg-clip-text text-transparent">Kelas 8.G</span>
+            </h2>
+            <p className="max-w-md text-sm text-slate-300">
+              Kelola absen, pemanggilan siswa, dan laporan kehadiran dengan tampilan yang lebih modern, cepat, dan intuitif.
             </p>
           </div>
 
-          {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-shake">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Username
-              </label>
-              <div className="relative">
-                <input
-                  id="inputLoginUsername"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Masukkan username"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 pl-10 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium text-slate-800"
-                  required
-                />
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+          <div className="grid grid-cols-3 gap-3 mt-2">
+            {[
+              ['768', 'Siswa'],
+              ['96%', 'Hadir'],
+              ['24/7', 'Realtime']
+            ].map(([value, label]) => (
+              <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm">
+                <div className="text-2xl font-black text-white">{value}</div>
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mt-1">{label}</div>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="inputLoginPassword"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Masukkan password"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 pl-10 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium text-slate-800"
-                  required
-                />
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-              </div>
-            </div>
-
-            <button
-              id="btnLoginSubmit"
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <span>Memproses Masuk...</span>
-              ) : (
-                <>
-                  <span>Masuk ke Sistem</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <button
-            type="button"
-            onClick={handleSupabaseGoogleLogin}
-            disabled={loading}
-            className="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2"
-          >
-            <Chrome className="w-4 h-4 text-blue-600" />
-            <span>Masuk dengan Google via Supabase</span>
-          </button>
-
+            ))}
+          </div>
         </div>
 
-        {/* Footer info */}
-        <div className="text-center mt-6 text-xs text-slate-400 font-medium">
-          Presensi Digital Kelas 8.G • SMP Negeri
+        <div className="w-full max-w-md justify-self-center relative z-10">
+          <div className="bg-white/8 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-[0_30px_100px_rgba(15,23,42,0.85)] border border-cyan-300/10 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-[0_20px_40px_rgba(59,130,246,0.45)] ring-4 ring-white/10">
+                <GraduationCap className="w-9 h-9" />
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
+                  Smart School
+                </div>
+                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">Presensi Digital 8.G</h1>
+              </div>
+              <p className="text-sm text-slate-300 font-medium">
+                Sistem absensi &amp; rekapitulasi kehadiran siswa secara modern.
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-400/30 text-rose-100 text-xs font-semibold flex items-center gap-2 animate-shake">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-200 uppercase tracking-[0.2em] mb-2">
+                  Username
+                </label>
+                <div className="relative">
+                  <input
+                    id="inputLoginUsername"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Masukkan username"
+                    className="w-full bg-slate-950/30 border border-white/10 rounded-2xl px-3.5 py-3 pl-11 text-sm focus:ring-2 focus:ring-cyan-400/50 outline-none font-medium text-white placeholder:text-slate-400"
+                    required
+                  />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-200 uppercase tracking-[0.2em] mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="inputLoginPassword"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Masukkan password"
+                    className="w-full bg-slate-950/30 border border-white/10 rounded-2xl px-3.5 py-3 pl-11 text-sm focus:ring-2 focus:ring-cyan-400/50 outline-none font-medium text-white placeholder:text-slate-400"
+                    required
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                </div>
+              </div>
+
+              <button
+                id="btnLoginSubmit"
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition shadow-[0_18px_35px_rgba(37,99,235,0.45)] flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <span>Memproses Masuk...</span>
+                ) : (
+                  <>
+                    <span>Masuk ke Sistem</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={handleSupabaseGoogleLogin}
+              disabled={loading}
+              className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-slate-100 font-bold py-3 rounded-2xl text-sm transition shadow-sm flex items-center justify-center gap-2"
+            >
+              <Chrome className="w-4 h-4 text-cyan-300" />
+              <span>Masuk dengan Google via Supabase</span>
+            </button>
+          </div>
+
+          <div className="text-center mt-6 text-xs text-slate-400 font-medium tracking-[0.22em] uppercase">
+            Presensi Digital Kelas 8.G • SMP Negeri
+          </div>
         </div>
       </div>
     </div>

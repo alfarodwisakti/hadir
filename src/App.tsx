@@ -81,26 +81,39 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-100 text-slate-800 font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        currentTab={currentTab}
-        onSelectTab={setCurrentTab}
-        user={user}
-        onLogout={handleLogout}
-        mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
-      />
+    <div className="digital-app-shell text-slate-100">
+      <div className="digital-grid" />
+      <div className="digital-noise" />
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-h-screen">
-        {currentTab === 'dashboard' && <DashboardView onNavigate={setCurrentTab} userRole={user?.role} />}
-        {currentTab === 'presensi' && <PresensiView />}
-        {currentTab === 'rekap' && <RekapView userRole={user?.role} />}
-        {currentTab === 'siswa' && <SiswaView />}
-        {currentTab === 'random-call' && <RandomCallView />}
-        {currentTab === 'settings' && <SettingsView />}
-      </main>
+      <div className="relative flex min-h-screen flex-col lg:flex-row">
+        <Sidebar
+          currentTab={currentTab}
+          onSelectTab={setCurrentTab}
+          user={user}
+          onLogout={handleLogout}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+        />
+
+        <main className="relative flex-1 p-3 sm:p-5 lg:p-6 overflow-y-auto max-h-screen z-10">
+          <div className="mx-auto max-w-7xl">
+            <div className="digital-topbar">
+              <div className="digital-topbar-badge">Digital Class</div>
+              <div className="digital-topbar-info">
+                <span className="digital-topbar-dot" />
+                <span>Kelas 8.G • Sistem Presensi</span>
+              </div>
+            </div>
+
+            {currentTab === 'dashboard' && <DashboardView onNavigate={setCurrentTab} userRole={user?.role} />}
+            {currentTab === 'presensi' && <PresensiView />}
+            {currentTab === 'rekap' && <RekapView userRole={user?.role} />}
+            {currentTab === 'siswa' && <SiswaView />}
+            {currentTab === 'random-call' && <RandomCallView />}
+            {currentTab === 'settings' && <SettingsView />}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

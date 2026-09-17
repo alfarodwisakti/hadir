@@ -11,8 +11,41 @@ interface AdminUser {
   role: string;
 }
 
-// Seed data awal dihapus agar daftar siswa bersifat kosong sampai data ditambahkan manual.
-const INITIAL_SISWA: Siswa[] = [];
+// Seed data mengikuti daftar siswa yang terdapat pada file Excel "PRESENSI DIGITAL.xlsx".
+const INITIAL_SISWA: Siswa[] = [
+  { nomorQr: "2408001", barcode: "2408001", nama: "AFIFAH SYAHIRA FITRI", kelas: "8.G" },
+  { nomorQr: "2408002", barcode: "2408002", nama: "AFIQAH KHAIRUNNISA RIZALOV", kelas: "8.G" },
+  { nomorQr: "2408003", barcode: "2408003", nama: "ALFARIS ADRIAN AKBAR", kelas: "8.G" },
+  { nomorQr: "2408004", barcode: "2408004", nama: "ALFARO DWI SAKTI", kelas: "8.G" },
+  { nomorQr: "2408005", barcode: "2408005", nama: "ALTA LATHIFA AMINI", kelas: "8.G" },
+  { nomorQr: "2408006", barcode: "2408006", nama: "AQILA KIRANA SYAFRI", kelas: "8.G" },
+  { nomorQr: "2408007", barcode: "2408007", nama: "ARRAHMAH WAZNA", kelas: "8.G" },
+  { nomorQr: "2408008", barcode: "2408008", nama: "ARZIKI GILBI EL SURYA", kelas: "8.G" },
+  { nomorQr: "2408009", barcode: "2408009", nama: "BINTANY NAURA ALJANNAH", kelas: "8.G" },
+  { nomorQr: "2408010", barcode: "2408010", nama: "DANISH EDILLA KENZY", kelas: "8.G" },
+  { nomorQr: "2408011", barcode: "2408011", nama: "DZAKIA TALITA DELSKI", kelas: "8.G" },
+  { nomorQr: "2408012", barcode: "2408012", nama: "FAIZ PUTRA RINALFI", kelas: "8.G" },
+  { nomorQr: "2408013", barcode: "2408013", nama: "HADISYA RUFLIANZA", kelas: "8.G" },
+  { nomorQr: "2408014", barcode: "2408014", nama: "HAKIM BAWAZIR", kelas: "8.G" },
+  { nomorQr: "2408015", barcode: "2408015", nama: "HUSNATHUL CHADLI", kelas: "8.G" },
+  { nomorQr: "2408016", barcode: "2408016", nama: "IQBAL AR RASYID", kelas: "8.G" },
+  { nomorQr: "2408017", barcode: "2408017", nama: "KAILYLA PUTRI INDO", kelas: "8.G" },
+  { nomorQr: "2408018", barcode: "2408018", nama: "KEKIRA ATHALETA IRAWAN", kelas: "8.G" },
+  { nomorQr: "2408019", barcode: "2408019", nama: "MALAIKA KEISHA APRIADI", kelas: "8.G" },
+  { nomorQr: "2408020", barcode: "2408020", nama: "MAULANA ALIF NUGROHO", kelas: "8.G" },
+  { nomorQr: "2408021", barcode: "2408021", nama: "MUTIA MELINRA PUTRI", kelas: "8.G" },
+  { nomorQr: "2408022", barcode: "2408022", nama: "NAFISA AZIZAH", kelas: "8.G" },
+  { nomorQr: "2408023", barcode: "2408023", nama: "NANANG PRAYOGA", kelas: "8.G" },
+  { nomorQr: "2408024", barcode: "2408024", nama: "NAYLA MUAZARA ULFA", kelas: "8.G" },
+  { nomorQr: "2408025", barcode: "2408025", nama: "PADUKA ALISHA SAFARANI", kelas: "8.G" },
+  { nomorQr: "2408026", barcode: "2408026", nama: "RAUDAH RAHAYU FIRDAUS", kelas: "8.G" },
+  { nomorQr: "2408027", barcode: "2408027", nama: "REVAN FIYATRA NADIFATUNNAGARA", kelas: "8.G" },
+  { nomorQr: "2408028", barcode: "2408028", nama: "SANI RUMAISHA VISANO", kelas: "8.G" },
+  { nomorQr: "2408029", barcode: "2408029", nama: "SHAZIA AFARYN ARIVIE", kelas: "8.G" },
+  { nomorQr: "2408030", barcode: "2408030", nama: "SYAKIRA PUTRI NEYANDRA", kelas: "8.G" },
+  { nomorQr: "2408031", barcode: "2408031", nama: "ZAHRA PUTRI ZANI", kelas: "8.G" },
+  { nomorQr: "2408032", barcode: "2408032", nama: "ZIVAN ANDESTA", kelas: "8.G" }
+];
 
 function getLocalAdminUsers(): AdminUser[] {
   const raw = localStorage.getItem("presensi_local_admin_users");

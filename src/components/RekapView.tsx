@@ -134,23 +134,36 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
   const persenHadirOverall = totalLogs > 0 ? Math.round((data.totalHadir / totalLogs) * 100) : 0;
   const isVisitor = userRole === 'Pengunjung';
 
+  const getStatusPill = (persen: number) => {
+    if (persen < 75) {
+      return <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">Perlu Perhatian</span>;
+    }
+    if (persen < 90) {
+      return <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">Cukup Baik</span>;
+    }
+    return <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">Sangat Baik</span>;
+  };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">{isVisitor ? 'Rekap Kehadiran Publik' : 'Rekap & Laporan Presensi'}</h1>
-          <p className="text-xs text-slate-500 mt-0.5">{isVisitor ? 'Pantau perkembangan kehadiran kelas 8.G secara transparan dan mudah dibaca.' : 'Analisis kehadiran siswa kelas ' + DEFAULT_KELAS + ' dan unduh laporan Excel'}</p>
-        </div>
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-slate-500 font-bold">Laporan Presensi</div>
+            <h1 className="text-2xl font-black text-slate-800 mt-1">{isVisitor ? 'Rekap Kehadiran Publik' : 'REKAP PRESENSI DIGITAL 8.G'}</h1>
+            <p className="text-xs text-slate-500 mt-1">{isVisitor ? 'Pantau perkembangan kehadiran kelas 8.G secara transparan dan mudah dibaca.' : 'Periode ' + tglMulai + ' sampai ' + tglSelesai}</p>
+          </div>
 
-        <button
-          id="btnExportExcel"
-          onClick={exportToExcel}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md shadow-emerald-600/20 self-start sm:self-auto"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>{isVisitor ? 'Unduh Ringkasan' : 'Export Excel (.xlsx)'}</span>
-        </button>
+          <button
+            id="btnExportExcel"
+            onClick={exportToExcel}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md shadow-emerald-600/20 self-start lg:self-auto"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>{isVisitor ? 'Unduh Ringkasan' : 'Export Excel (.xlsx)'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Card */}
@@ -231,35 +244,35 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
       {/* Summary Statistics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-1 flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4" /> Total Hadir
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 mb-2 flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4" /> Hadir
           </div>
-          <div className="text-2xl font-extrabold text-slate-800">{data.totalHadir}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Kehadiran tercatat</div>
+          <div className="text-3xl font-black text-slate-800">{data.totalHadir}</div>
+          <div className="text-[11px] text-slate-500 mt-1">Kehadiran tercatat</div>
         </div>
 
         <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1 flex items-center gap-1.5">
-            <Clock className="w-4 h-4" /> Total Izin
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600 mb-2 flex items-center gap-1.5">
+            <Clock className="w-4 h-4" /> Izin
           </div>
-          <div className="text-2xl font-extrabold text-slate-800">{data.totalIzin}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Izin terkonfirmasi</div>
+          <div className="text-3xl font-black text-slate-800">{data.totalIzin}</div>
+          <div className="text-[11px] text-slate-500 mt-1">Izin terkonfirmasi</div>
         </div>
 
         <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-xs font-bold uppercase tracking-wider text-purple-600 mb-1 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> Total Sakit
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-600 mb-2 flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4" /> Sakit
           </div>
-          <div className="text-2xl font-extrabold text-slate-800">{data.totalSakit}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Keterangan sakit</div>
+          <div className="text-3xl font-black text-slate-800">{data.totalSakit}</div>
+          <div className="text-[11px] text-slate-500 mt-1">Keterangan sakit</div>
         </div>
 
         <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-          <div className="text-xs font-bold uppercase tracking-wider text-rose-600 mb-1 flex items-center gap-1.5">
-            <XCircle className="w-4 h-4" /> Total Alpa
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 mb-2 flex items-center gap-1.5">
+            <XCircle className="w-4 h-4" /> Alpa
           </div>
-          <div className="text-2xl font-extrabold text-slate-800">{data.totalAlpa}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Tanpa keterangan</div>
+          <div className="text-3xl font-black text-slate-800">{data.totalAlpa}</div>
+          <div className="text-[11px] text-slate-500 mt-1">Tanpa keterangan</div>
         </div>
       </div>
 
@@ -337,9 +350,9 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
 
       {/* Rekap per Siswa Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">Tabel Rekap Kehadiran per Siswa</h2>
+            <h2 className="text-sm font-black text-slate-800 uppercase tracking-[0.12em]">Tabel Rekap Kehadiran</h2>
             <p className="text-xs text-slate-500">Siswa dengan kehadiran di bawah 75% ditandai khusus</p>
           </div>
 
@@ -356,36 +369,38 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm border-separate border-spacing-0">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200/60 text-xs">
-                <th className="py-3 px-4">Nomor QR</th>
-                <th className="py-3 px-4">Nama Siswa</th>
-                <th className="py-3 px-4 text-center">Hadir</th>
-                <th className="py-3 px-4 text-center">Izin</th>
-                <th className="py-3 px-4 text-center">Sakit</th>
-                <th className="py-3 px-4 text-center">Alpa</th>
-                <th className="py-3 px-4 text-right">% Kehadiran</th>
+              <tr className="bg-slate-100 text-slate-700 font-black border-b border-slate-200 text-[11px] uppercase tracking-[0.12em]">
+                <th className="py-3 px-4 border-b border-slate-200 text-center">No</th>
+                <th className="py-3 px-4 border-b border-slate-200">Nama Siswa</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-center">Nomor QR</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-center">Hadir</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-center">Izin</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-center">Sakit</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-center">Alpa</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-right">% Kehadiran</th>
+                <th className="py-3 px-4 border-b border-slate-200 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="py-10 text-center text-slate-400 text-xs">
                     <HelpCircle className="w-6 h-6 mx-auto mb-2 text-slate-300" />
                     Tidak ada data siswa yang cocok dengan filter pencarian.
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((s) => {
+                filteredStudents.map((s, index) => {
                   const isLow = s.persenHadir < 75;
                   return (
                     <tr 
                       key={s.nomorQr} 
-                      className={`hover:bg-slate-50/80 transition ${isLow ? 'bg-rose-50/50' : ''}`}
+                      className={`hover:bg-slate-50/80 transition ${isLow ? 'bg-rose-50/40' : ''}`}
                     >
-                      <td className="py-3 px-4 font-mono text-xs font-semibold text-blue-600">{s.nomorQr}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">
+                      <td className="py-3 px-4 text-center text-slate-600 font-semibold border-b border-slate-100">{index + 1}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-800 border-b border-slate-100">
                         <div className="flex items-center gap-2">
                           <span>{s.nama}</span>
                           {isLow && (
@@ -395,17 +410,19 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-center font-semibold text-emerald-600">{s.hadir}</td>
-                      <td className="py-3 px-4 text-center text-slate-600">{s.izin}</td>
-                      <td className="py-3 px-4 text-center text-slate-600">{s.sakit}</td>
-                      <td className="py-3 px-4 text-center font-semibold text-rose-600">{s.alpa}</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded font-bold text-xs ${
+                      <td className="py-3 px-4 text-center font-mono text-xs font-semibold text-blue-600 border-b border-slate-100">{s.nomorQr}</td>
+                      <td className="py-3 px-4 text-center font-bold text-emerald-600 border-b border-slate-100">{s.hadir}</td>
+                      <td className="py-3 px-4 text-center text-slate-600 border-b border-slate-100">{s.izin}</td>
+                      <td className="py-3 px-4 text-center text-slate-600 border-b border-slate-100">{s.sakit}</td>
+                      <td className="py-3 px-4 text-center font-bold text-rose-600 border-b border-slate-100">{s.alpa}</td>
+                      <td className="py-3 px-4 text-right border-b border-slate-100">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full font-black text-xs ${
                           isLow ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-800'
                         }`}>
                           {s.persenHadir}%
                         </span>
                       </td>
+                      <td className="py-3 px-4 text-center border-b border-slate-100">{getStatusPill(s.persenHadir)}</td>
                     </tr>
                   );
                 })
