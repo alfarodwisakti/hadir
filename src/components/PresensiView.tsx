@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { callAPI, formatTanggal, formatJam, DEFAULT_KELAS } from '../services/api';
+import { getStoredFaceEnrollments, findBestFaceMatch, detectFaceDescriptor, loadFaceRecognitionModels } from '../lib/faceRecognition';
 import { Siswa, StatusPresensi, MetodePresensi } from '../types';
 
 interface SessionLogItem {
@@ -186,6 +187,43 @@ export const PresensiView: React.FC = () => {
     }
   };
 
+  const verifyFaceForStudent = async (nomorQr: string): Promise<{ ok: boolean; message: string; distance?: number }> => {
+    const enrollments = getStoredFaceEnrollments().filter(item => item.nomorQr === String(nomorQr).trim());
+    if (!enrollments.length) {
+      return { ok: true, message: 'Tidak ada data wajah terdaftar untuk siswa ini, lanjutkan dengan barcode.' };
+    }
+
+    if (!videoRef.current) {
+      return { ok: false, message: 'Kamera wajah belum siap. Silakan aktifkan kamera wajah terlebih dahulu.' };
+    }
+
+    const modelLoaded = await loadFaceRecognitionModels();
+    if (!modelLoaded) {
+      return { ok: false, message: 'Pengenalan wajah belum siap di browser ini. Gunakan tombol barcode sebagai fallback.' };
+    }
+
+    const descriptor = await detectFaceDescriptor(videoRef.current);
+    if (!descriptor) {
+      return { ok: false, message: 'Wajah tidak terdeteksi. Pastikan wajah terlihat jelas dan coba lagi.' };
+    }
+
+    const match = findBestFaceMatch(descriptor, enrollments);
+    if (!match) {
+      return { ok: false, message: 'Data wajah siswa tidak dapat dicocokkan.' };
+    }
+
+    const threshold = 0.45;
+    if (match.distance > threshold) {
+      return {
+        ok: false,
+        message: `Wajah tidak cocok dengan data siswa (${match.distance.toFixed(2)}). Gunakan metode barcode.`,
+        distance: match.distance
+      };
+    }
+
+    return { ok: true, message: `Wajah cocok (${match.distance.toFixed(2)}).`, distance: match.distance };
+  };
+
   const handleAttendance = async (
     nomorQr: string,
     statusInput: StatusPresensi,
@@ -264,13 +302,26 @@ export const PresensiView: React.FC = () => {
           setScannerStatus(`Memproses kode: ${cleaned}...`);
           playBeep(true);
 
-          const nextFaceImage = requireFaceCheck ? await captureFaceSnapshot() : null;
-          if (requireFaceCheck && !nextFaceImage) {
-            setTimeout(() => {
-              isCooldownRef.current = false;
-              setScannerStatus('Verifikasi wajah gagal. Coba ambil foto wajah dan ulangi scan.');
-            }, 1200);
-            return;
+          let nextFaceImage: string | null = null;
+          if (requireFaceCheck) {
+            nextFaceImage = await captureFaceSnapshot();
+            if (!nextFaceImage) {
+              setTimeout(() => {
+                isCooldownRef.current = false;
+                setScannerStatus('Verifikasi wajah gagal. Coba ambil foto wajah dan ulangi scan.');
+              }, 1200);
+              return;
+            }
+
+            const faceCheck = await verifyFaceForStudent(cleaned);
+            if (!faceCheck.ok) {
+              playBeep(false);
+              setTimeout(() => {
+                isCooldownRef.current = false;
+                setScannerStatus(faceCheck.message);
+              }, 1200);
+              return;
+            }
           }
 
           const result = await handleAttendance(cleaned, "Hadir", requireFaceCheck ? "Scan + Wajah" : "Scan", "", {
