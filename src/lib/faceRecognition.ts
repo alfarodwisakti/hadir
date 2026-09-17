@@ -75,6 +75,20 @@ export function saveFaceEnrollment(entry: FaceEnrollment): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
+export function averageFaceEmbedding(samples: number[][]): number[] {
+  if (!samples.length) return [];
+  const length = samples[0].length;
+  const totals = new Array(length).fill(0);
+
+  for (const sample of samples) {
+    for (let i = 0; i < length; i += 1) {
+      totals[i] += Number(sample[i] || 0);
+    }
+  }
+
+  return totals.map(value => value / samples.length);
+}
+
 export async function detectFaceDescriptor(video: HTMLVideoElement): Promise<Float32Array | null> {
   const faceapi = await loadFaceApi();
   if (!faceapi || !video) return null;

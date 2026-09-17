@@ -7,7 +7,7 @@ export interface Siswa {
 }
 
 export type StatusPresensi = 'Hadir' | 'Terlambat' | 'Izin' | 'Sakit' | 'Alpa';
-export type MetodePresensi = 'Scan' | 'Manual' | 'Otomatis' | 'Scan + Wajah';
+export type MetodePresensi = 'Scan' | 'Manual' | 'Otomatis' | 'Scan + Wajah' | 'Wajah';
 
 export interface PresensiRecord {
   id: string;

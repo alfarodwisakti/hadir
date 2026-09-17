@@ -1,4 +1,5 @@
 import { Siswa, PresensiRecord, UserSession, ApiResponse, RekapHarianData, RekapPeriodeData, StatusPresensi, SiswaRekapStat } from '../types';
+import { saveFaceEnrollment } from '../lib/faceRecognition';
 
 export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
@@ -354,6 +355,34 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     return { success: true };
   }
 
+  if (action === "enrollFace") {
+    const { nomorQr, nama, embedding } = payload;
+    if (!nomorQr || !Array.isArray(embedding) || !embedding.length) {
+      return { success: false, message: 'Data wajah belum lengkap. Silakan ambil foto wajah terlebih dahulu.' };
+    }
+
+    saveFaceEnrollment({
+      nomorQr: String(nomorQr).trim(),
+      nama: String(nama || '').trim() || 'Siswa',
+      embedding: embedding.map((value: any) => Number(value)),
+      createdAt: new Date().toISOString()
+    });
+
+    return { success: true, message: 'Data wajah siswa berhasil disimpan.' };
+  }
+
+  if (action === "syncSpreadsheetPresensi") {
+    const rows = JSON.parse(localStorage.getItem('presensi_sheet_sync') || '[]');
+    const nextRow = {
+      ...payload,
+      syncedAt: new Date().toISOString(),
+      metode: payload.metode || 'Wajah'
+    };
+    rows.push(nextRow);
+    localStorage.setItem('presensi_sheet_sync', JSON.stringify(rows));
+    return { success: true, data: rows };
+  }
+
   if (action === "simpanPresensi") {
     const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas, fotoWajah } = payload;
     const list = getLocalSiswa();
@@ -376,6 +405,8 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       finalStatus = "Terlambat";
     }
 
+    const finalMetode: any = metode || "Scan";
+
     const newRecord: PresensiRecord = {
       id: "rec_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
       tanggal: tanggal || formatTanggal(),
@@ -384,13 +415,30 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       nama: siswa.nama,
       kelas: kelas || siswa.kelas || DEFAULT_KELAS,
       status: finalStatus,
-      metode: metode || "Scan",
+      metode: finalMetode,
       keterangan: keterangan || "",
       fotoWajah: fotoWajah ? String(fotoWajah).trim() || undefined : undefined
     };
 
     records.unshift(newRecord);
     saveLocalRecords(records);
+
+    if (finalMetode === 'Wajah' || finalMetode === 'Scan + Wajah') {
+      localStorage.setItem('presensi_sheet_sync', JSON.stringify([
+        ...(JSON.parse(localStorage.getItem('presensi_sheet_sync') || '[]')),
+        {
+          id_siswa: siswa.nomorQr,
+          nama_siswa: siswa.nama,
+          kelas: kelas || siswa.kelas || DEFAULT_KELAS,
+          tanggal: newRecord.tanggal,
+          waktu: newRecord.jam,
+          metode: 'Wajah',
+          status: finalStatus,
+          lokasi: 'Gerbang Utama',
+          syncedAt: new Date().toISOString()
+        }
+      ]));
+    }
 
     return {
       success: true,
