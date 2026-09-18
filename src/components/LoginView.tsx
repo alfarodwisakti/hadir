@@ -145,7 +145,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <img
                   src={logoUrl}
                   alt="Logo sekolah"
-                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
+                  className="w-28 h-28 sm:w-32 sm:h-32 lg:w-36 lg:h-36 object-contain"
                 />
               </div>
               <div>
