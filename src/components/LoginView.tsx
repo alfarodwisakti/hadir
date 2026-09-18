@@ -23,6 +23,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const visitorLabel = 'Masuk sebagai Pengunjung';
+  const adminLabel = 'Masuk sebagai Admin';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -166,69 +169,84 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-200 uppercase tracking-[0.2em] mb-2">
-                  Username
-                </label>
-                <div className="relative">
-                  <input
-                    id="inputLoginUsername"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Masukkan username"
-                    className="w-full bg-slate-950/30 border border-white/10 rounded-2xl px-3.5 py-3 pl-11 text-sm focus:ring-2 focus:ring-cyan-400/50 outline-none font-medium text-white placeholder:text-slate-400"
-                    required
-                  />
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-200 uppercase tracking-[0.2em] mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="inputLoginPassword"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Masukkan password"
-                    className="w-full bg-slate-950/30 border border-white/10 rounded-2xl px-3.5 py-3 pl-11 text-sm focus:ring-2 focus:ring-cyan-400/50 outline-none font-medium text-white placeholder:text-slate-400"
-                    required
-                  />
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                </div>
-              </div>
-
+            <div className="space-y-4">
               <button
-                id="btnLoginSubmit"
-                type="submit"
+                type="button"
+                onClick={handleSupabaseGoogleLogin}
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition shadow-[0_18px_35px_rgba(37,99,235,0.45)] flex items-center justify-center gap-2"
+                className="w-full bg-gradient-to-r from-emerald-400 via-cyan-500 to-sky-600 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 text-white font-bold py-3.5 rounded-2xl text-sm transition shadow-[0_18px_35px_rgba(14,165,233,0.35)] flex items-center justify-center gap-2"
               >
-                {loading ? (
-                  <span>Memproses Masuk...</span>
-                ) : (
-                  <>
-                    <span>Masuk ke Sistem</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
+                <Chrome className="w-4 h-4 text-white" />
+                <span>{visitorLabel}</span>
               </button>
-            </form>
 
-            <button
-              type="button"
-              onClick={handleSupabaseGoogleLogin}
-              disabled={loading}
-              className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-slate-100 font-bold py-3 rounded-2xl text-sm transition shadow-sm flex items-center justify-center gap-2"
-            >
-              <Chrome className="w-4 h-4 text-cyan-300" />
-              <span>Masuk dengan Google via Supabase</span>
-            </button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-slate-900/80 px-3 text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">Atau</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+                <div className="text-left">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-200 mb-2">{adminLabel}</div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-200 uppercase tracking-[0.2em] mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="inputLoginUsername"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Masukkan username"
+                      className="w-full bg-slate-950/30 border border-white/10 rounded-2xl px-3.5 py-3 pl-11 text-sm focus:ring-2 focus:ring-cyan-400/50 outline-none font-medium text-white placeholder:text-slate-400"
+                      required
+                    />
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-200 uppercase tracking-[0.2em] mb-2">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="inputLoginPassword"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Masukkan password"
+                      className="w-full bg-slate-950/30 border border-white/10 rounded-2xl px-3.5 py-3 pl-11 text-sm focus:ring-2 focus:ring-cyan-400/50 outline-none font-medium text-white placeholder:text-slate-400"
+                      required
+                    />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  </div>
+                </div>
+
+                <button
+                  id="btnLoginSubmit"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:brightness-110 active:scale-[0.99] disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition shadow-[0_18px_35px_rgba(37,99,235,0.45)] flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <span>Memproses Masuk...</span>
+                  ) : (
+                    <>
+                      <span>{adminLabel}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
           </div>
 
           <div className="text-center mt-6 text-xs text-slate-400 font-medium tracking-[0.22em] uppercase">

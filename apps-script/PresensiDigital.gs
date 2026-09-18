@@ -8,13 +8,15 @@
 
 const SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_HERE";
 const SHEET_ADMIN = "Admin";
-const SHEET_SISWA = "Siswa";
+const SHEET_PENGUNJUNG = "Pengunjung";
+const SHEET_SISWA = "Pengunjung";
+const LEGACY_SISWA = "Siswa";
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
 const SHEET_HEADERS = {
   [SHEET_ADMIN]: ["username", "password", "nama", "role"],
-  [SHEET_SISWA]: ["nomorQr", "barcode", "nama", "kelas"],
+  [SHEET_PENGUNJUNG]: ["nomorQr", "barcode", "nama", "kelas"],
   [SHEET_PRESENSI]: ["tanggal", "jam", "nomorQr", "nama", "kelas", "status", "metode", "keterangan"]
 };
 
@@ -24,7 +26,7 @@ function getSpreadsheet() {
 
 function ensureSheetStructure() {
   const ss = getSpreadsheet();
-  const names = [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI];
+  const names = [SHEET_ADMIN, SHEET_PENGUNJUNG, SHEET_PRESENSI];
 
   names.forEach((name) => {
     let sheet = ss.getSheetByName(name);
@@ -120,7 +122,17 @@ function normalizeTime(value) {
 }
 
 function readSheetRows(sheetName) {
-  const sheet = getSheetByName(sheetName);
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet && sheetName === SHEET_SISWA && ss.getSheetByName(LEGACY_SISWA)) {
+    sheet = ss.getSheetByName(LEGACY_SISWA);
+  }
+
+  if (!sheet) {
+    return [];
+  }
+
   const values = sheet.getDataRange().getValues();
 
   if (!values || values.length < 2) {
@@ -214,11 +226,11 @@ function setupDefaultSheets() {
     adminSheet.appendRow(["admin", "admin123", "Admin Utama", "Admin"]);
   }
 
-  const siswaSheet = getSheetByName(SHEET_SISWA);
-  if (siswaSheet.getLastRow() <= 1) {
-    siswaSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
-    siswaSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
-    siswaSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
+  const pengunjungSheet = getSheetByName(SHEET_PENGUNJUNG);
+  if (pengunjungSheet.getLastRow() <= 1) {
+    pengunjungSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
+    pengunjungSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
+    pengunjungSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
   }
 }
 

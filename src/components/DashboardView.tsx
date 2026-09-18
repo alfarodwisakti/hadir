@@ -10,7 +10,8 @@ import {
   Users, 
   RefreshCw,
   Calendar,
-  Sparkles
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { callAPI, formatTanggal, formatJam, DEFAULT_KELAS } from '../services/api';
 import { RekapHarianData, StatusPresensi } from '../types';
@@ -31,10 +32,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
   });
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(formatJam());
+  const [searchQuery, setSearchQuery] = useState('');
   const todayStr = formatTanggal();
   const isVisitor = userRole === 'Pengunjung';
   const totalToday = data.hadir + data.izin + data.sakit + data.alpa || 1;
   const hadirPct = Math.round((data.hadir / totalToday) * 100);
+
+  const filteredLog = data.log.filter((row) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return row.nama.toLowerCase().includes(q) || row.nomorQr.toLowerCase().includes(q);
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -252,21 +260,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
       </div>
 
       {/* Recent Presensi Table */}
-      <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+      <div className={`rounded-xl border overflow-hidden ${isVisitor ? 'bg-gradient-to-br from-slate-900 via-sky-950 to-indigo-950 border-sky-400/30 shadow-[0_20px_45px_rgba(14,165,233,0.12)]' : 'bg-white border-slate-200/80 shadow-xs'}`}>
+        <div className={`p-5 border-b ${isVisitor ? 'border-sky-400/20 bg-sky-500/5' : 'border-slate-100'} flex flex-col md:flex-row md:items-center justify-between gap-3`}>
           <div>
-            <h2 className="text-base font-bold text-slate-800">Presensi Terbaru Hari Ini</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Daftar siswa yang telah melakukan presensi sesi hari ini</p>
+            <h2 className={`text-base font-bold ${isVisitor ? 'text-sky-50' : 'text-slate-800'}`}>
+              {isVisitor ? 'Pencarian Kehadiran Siswa' : 'Presensi Terbaru Hari Ini'}
+            </h2>
+            <p className={`text-xs mt-0.5 ${isVisitor ? 'text-sky-100/80' : 'text-slate-500'}`}>
+              {isVisitor ? 'Cari siswa berdasarkan nama atau nomor QR untuk melihat kehadiran hari ini.' : 'Daftar siswa yang telah melakukan presensi sesi hari ini'}
+            </p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-            {data.log.length} Catatan
-          </span>
+
+          <div className="flex items-center gap-2">
+            {isVisitor && (
+              <div className="relative w-full md:w-72">
+                <Search className="w-4 h-4 text-sky-200 absolute left-3 top-3.5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama / nomor QR..."
+                  className="w-full bg-white/10 border border-sky-300/20 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-sky-100/70 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                />
+              </div>
+            )}
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${isVisitor ? 'bg-sky-500/15 text-sky-100 border border-sky-300/20' : 'bg-slate-100 text-slate-600'}`}>
+              {filteredLog.length} Catatan
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200/60 text-xs">
+              <tr className={`${isVisitor ? 'bg-sky-500/10 text-sky-100' : 'bg-slate-50 text-slate-500'} font-semibold border-b ${isVisitor ? 'border-sky-400/20' : 'border-slate-200/60'} text-xs`}>
                 <th className="py-3 px-4">Jam</th>
                 <th className="py-3 px-4">Nomor QR</th>
                 <th className="py-3 px-4">Nama Siswa</th>
@@ -274,23 +301,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
                 <th className="py-3 px-4">Metode</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {data.log.length === 0 ? (
+            <tbody className={`${isVisitor ? 'divide-y divide-sky-400/10 text-sky-50' : 'divide-y divide-slate-100'}`}>
+              {filteredLog.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-slate-400 text-sm">
-                    <HelpCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                    Belum ada presensi yang tercatat untuk hari ini.
+                  <td colSpan={5} className={`py-10 text-center ${isVisitor ? 'text-sky-200/80' : 'text-slate-400'} text-sm`}>
+                    <HelpCircle className={`w-8 h-8 mx-auto mb-2 ${isVisitor ? 'text-sky-300/70' : 'text-slate-300'}`} />
+                    {searchQuery ? 'Tidak ada siswa yang cocok dengan pencarian ini.' : 'Belum ada presensi yang tercatat untuk hari ini.'}
                   </td>
                 </tr>
               ) : (
-                data.log.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3 px-4 font-mono text-xs text-slate-600 font-medium">{row.jam}</td>
-                    <td className="py-3 px-4 font-mono text-xs text-blue-600 font-semibold">{row.nomorQr}</td>
-                    <td className="py-3 px-4 font-semibold text-slate-800">{row.nama}</td>
+                filteredLog.map((row, idx) => (
+                  <tr key={idx} className={isVisitor ? 'hover:bg-sky-500/5 transition' : 'hover:bg-slate-50/70 transition'}>
+                    <td className={`py-3 px-4 font-mono text-xs font-medium ${isVisitor ? 'text-sky-100' : 'text-slate-600'}`}>{row.jam}</td>
+                    <td className={`py-3 px-4 font-mono text-xs font-semibold ${isVisitor ? 'text-cyan-300' : 'text-blue-600'}`}>{row.nomorQr}</td>
+                    <td className={`py-3 px-4 font-semibold ${isVisitor ? 'text-white' : 'text-slate-800'}`}>{row.nama}</td>
                     <td className="py-3 px-4">{getStatusBadge(row.status)}</td>
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-medium">
+                      <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded font-medium ${isVisitor ? 'text-sky-100 bg-sky-500/10 border border-sky-400/20' : 'text-slate-500 bg-slate-100'}`}>
                         {row.metode}
                       </span>
                     </td>
