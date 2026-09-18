@@ -2,7 +2,7 @@ import { Siswa, PresensiRecord, UserSession, ApiResponse, RekapHarianData, Rekap
 
 export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
-const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwm3hziNjIuKSkUh3iPX6lvWM4RHd5uebi1F0oRXBp-zoFffDH20Ah1xlUnAmTDOpT6Ug/exec";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxOwJTvjmpi240jXr_0i-jG2FSXOfLQQMTmWCXgHTeL5Cz3QGWeDJ8NQO1_Pt4YypRcxQ/exec
 
 interface AdminUser {
   username: string;
