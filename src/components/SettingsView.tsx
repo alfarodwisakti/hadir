@@ -43,15 +43,35 @@ export const SettingsView: React.FC = () => {
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "login", username: "test", password: "test" })
       });
-      if (res.ok) {
-        setTestResult({ success: true, message: "Koneksi ke Google Apps Script berhasil terhubung!" });
-      } else {
-        setTestResult({ success: false, message: `Server mengembalikan status HTTP ${res.status}. Pastikan URL Web App benar dan diatur 'Who has access: Anyone'.` });
+
+      const contentType = res.headers.get("content-type") || "";
+      let message = "Koneksi ke Google Apps Script berhasil terhubung!";
+
+      if (!res.ok) {
+        const text = await res.text();
+        let parsed: any = null;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          // keep raw text as fallback
+        }
+        message = parsed?.message || `Server mengembalikan status HTTP ${res.status}. Pastikan URL Web App benar, spreadsheet aktif, dan akses diatur ke 'Anyone'.`;
+        setTestResult({ success: false, message });
+        return;
       }
+
+      if (contentType.includes("application/json")) {
+        const json = await res.json();
+        if (!json.success) {
+          message = json.message || message;
+        }
+      }
+
+      setTestResult({ success: true, message });
     } catch (err: any) {
       setTestResult({
         success: false,
-        message: "Tidak dapat terhubung ke Google Apps Script. Sistem saat ini berjalan mulus dalam Mode Penyimpanan Lokal (Resilient Mode)."
+        message: `Tidak dapat terhubung ke Google Apps Script. Periksa URL Web App, spreadsheet, dan setelan akses 'Anyone'. Detail: ${err?.message || "Unknown error"}`
       });
     } finally {
       setTesting(false);

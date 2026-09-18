@@ -558,14 +558,31 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
       }
 
       return json;
-    } else {
-      console.warn("GAS responded with non-ok HTTP status, falling back to local state:", res.status);
-      return executeLocalAction(action, payload);
     }
+
+    const errorText = await res.text();
+    let message = "Server presensi tidak merespons. Pastikan URL Web App Google Apps Script sudah benar dan dapat diakses publik.";
+
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed && parsed.message) message = parsed.message;
+    } catch {
+      if (errorText) message = errorText;
+    }
+
+    console.warn("GAS responded with non-ok HTTP status:", res.status, message);
+    return {
+      success: false,
+      message
+    };
   } catch (err: any) {
     clearTimeout(timeoutId);
-    console.info("Using active local persistence (Google Apps Script sync standby):", err?.message || err);
-    return executeLocalAction(action, payload);
+    const fallbackMessage = "Tidak dapat terhubung ke server presensi. Periksa URL Web App Google Apps Script dan setelan akses 'Anyone'.";
+    console.info("Remote server unavailable:", err?.message || err);
+    return {
+      success: false,
+      message: err?.message ? `${fallbackMessage} Detail: ${err.message}` : fallbackMessage
+    };
   }
 }
 
