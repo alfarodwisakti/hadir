@@ -181,48 +181,12 @@ function saveLocalSiswa(list: Siswa[]): void {
 function getLocalRecords(): PresensiRecord[] {
   const raw = localStorage.getItem("presensi_local_records");
   if (!raw) {
-    // Generate some recent sample records for realistic UI preview
-    const today = formatTanggal();
-    const sampleRecords: PresensiRecord[] = [
-      {
-        id: "rec_1",
-        tanggal: today,
-        jam: "06:45:12",
-        nomorQr: "2408001",
-        nama: "Ahmad Fauzi",
-        kelas: "8.G",
-        status: "Hadir",
-        metode: "Scan",
-        keterangan: ""
-      },
-      {
-        id: "rec_2",
-        tanggal: today,
-        jam: "06:58:30",
-        nomorQr: "2408002",
-        nama: "Aisyah Putri",
-        kelas: "8.G",
-        status: "Hadir",
-        metode: "Scan",
-        keterangan: ""
-      },
-      {
-        id: "rec_3",
-        tanggal: today,
-        jam: "07:22:04",
-        nomorQr: "2408003",
-        nama: "Bagas Pratama",
-        kelas: "8.G",
-        status: "Terlambat",
-        metode: "Scan",
-        keterangan: "Terlambat tiba di sekolah"
-      }
-    ];
-    localStorage.setItem("presensi_local_records", JSON.stringify(sampleRecords));
-    return sampleRecords;
+    localStorage.setItem("presensi_local_records", JSON.stringify([]));
+    return [];
   }
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -523,7 +487,6 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
   const apiUrl = getApiUrl();
   const session = getSession();
 
-  // If apiUrl is explicitly disabled or empty, use local handler immediately
   if (!apiUrl || apiUrl.includes("MY_APP_URL")) {
     return executeLocalAction(action, payload);
   }
@@ -543,20 +506,57 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
 
     if (res.ok) {
       const json = await res.json();
-      // Also update local copy for offline resilience
+
       if (json && json.success) {
         if (action === "getDaftarSiswa" && Array.isArray(json.data)) {
           saveLocalSiswa(json.data);
         }
+
+        if (action === "login" && json.username) {
+          const localAdmin = getLocalAdminUsers();
+          if (!localAdmin.some(user => user.username.toLowerCase() === String(json.username ?? "").toLowerCase())) {
+            saveLocalAdminUsers([...localAdmin, {
+              username: String(json.username ?? "").trim(),
+              password: String(payload?.password ?? "").trim(),
+              nama: String(json.nama ?? json.username ?? "").trim(),
+              role: String(json.role ?? "Admin").trim() || "Admin"
+            }]);
+          }
+        }
+
         if ((action === "getAdminUsers" || action === "login") && Array.isArray(json.data)) {
           saveLocalAdminUsers(json.data.map((user: any) => ({
             username: String(user.username ?? "").trim(),
             password: String(user.password ?? "").trim(),
             nama: String(user.nama ?? user.username ?? "").trim(),
             role: String(user.role ?? "Admin").trim() || "Admin"
-          }))); 
+          })));
+        }
+
+        if (action === "simpanPresensi" && json.success && json.nama) {
+          const records = getLocalRecords();
+          const targetDate = normalizeDateString(payload.tanggal || formatTanggal());
+          const existing = records.find(r =>
+            normalizeDateString(r.tanggal) === targetDate && r.nomorQr.trim() === String(payload.nomorQr ?? "").trim()
+          );
+
+          if (!existing) {
+            const record: PresensiRecord = {
+              id: "sync_" + Date.now() + Math.random().toString(36).slice(2, 8),
+              tanggal: String(payload.tanggal || formatTanggal()),
+              jam: String(payload.jam || formatJam()),
+              nomorQr: String(payload.nomorQr ?? ""),
+              nama: String(json.nama ?? payload.nama ?? ""),
+              kelas: String(payload.kelas || DEFAULT_KELAS),
+              status: String(json.status || payload.status || "Hadir"),
+              metode: String(payload.metode || "Scan"),
+              keterangan: String(payload.keterangan || "")
+            };
+            saveLocalRecords([record, ...records]);
+          }
         }
       }
+
       return json;
     } else {
       console.warn("GAS responded with non-ok HTTP status, falling back to local state:", res.status);
@@ -565,7 +565,6 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
   } catch (err: any) {
     clearTimeout(timeoutId);
     console.info("Using active local persistence (Google Apps Script sync standby):", err?.message || err);
-    // Fallback seamlessly to local engine so user is never blocked
     return executeLocalAction(action, payload);
   }
 }

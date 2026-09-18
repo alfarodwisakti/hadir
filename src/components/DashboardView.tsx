@@ -52,10 +52,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
 
   useEffect(() => {
     loadData();
+
     const timer = setInterval(() => {
       setCurrentTime(formatJam());
     }, 1000);
-    return () => clearInterval(timer);
+
+    const syncTimer = setInterval(() => {
+      loadData();
+    }, 15000);
+
+    return () => {
+      clearInterval(timer);
+      clearInterval(syncTimer);
+    };
   }, []);
 
   const getStatusBadge = (status: StatusPresensi) => {

@@ -64,7 +64,13 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
 
   useEffect(() => {
     loadRekap();
-  }, []);
+
+    const syncTimer = setInterval(() => {
+      loadRekap();
+    }, 15000);
+
+    return () => clearInterval(syncTimer);
+  }, [tglMulai, tglSelesai]);
 
   // Quick Date Presets
   const setPreset = (type: 'today' | '7days' | 'month') => {
