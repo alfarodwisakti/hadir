@@ -1,84 +1,22 @@
 // Google Apps Script backend untuk Presensi Digital 8.G
 // 1. Buat spreadsheet baru atau gunakan spreadsheet yang sama.
-// 2. Pastikan sheet bernama: Admin, Siswa, Presensi
-// 3. Deploy sebagai Web App: "Anyone" dengan akses ke aplikasi
-// 4. Salin URL hasil deploy ke pengaturan aplikasi web di Settings
+// 2. Pastikan sheet bernama: Admin, Siswa, Presensi.
+// 3. Deploy sebagai Web App: "Anyone" dengan akses ke aplikasi.
+// 4. Salin URL hasil deploy ke aplikasi web frontend.
 //
-// Catatan: ganti SPREADSHEET_ID di bawah dengan ID spreadsheet Anda.
+// Catatan: isi SPREADSHEET_ID dengan ID spreadsheet Anda.
 
 const SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_HERE";
 const SHEET_ADMIN = "Admin";
-const SHEET_PENGUNJUNG = "Pengunjung";
-const SHEET_SISWA = "Pengunjung";
-const LEGACY_SISWA = "Siswa";
+const SHEET_SISWA = "Siswa";
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
 const SHEET_HEADERS = {
   [SHEET_ADMIN]: ["username", "password", "nama", "role"],
-  [SHEET_PENGUNJUNG]: ["nomorQr", "barcode", "nama", "kelas"],
+  [SHEET_SISWA]: ["nomorQr", "barcode", "nama", "kelas"],
   [SHEET_PRESENSI]: ["tanggal", "jam", "nomorQr", "nama", "kelas", "status", "metode", "keterangan"]
 };
-
-function getSpreadsheet() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
-}
-
-function ensureSheetStructure() {
-  const ss = getSpreadsheet();
-  const names = [SHEET_ADMIN, SHEET_PENGUNJUNG, SHEET_PRESENSI];
-
-  names.forEach((name) => {
-    let sheet = ss.getSheetByName(name);
-    if (!sheet) {
-      sheet = ss.insertSheet(name);
-    }
-
-    const headers = SHEET_HEADERS[name] || [];
-    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
-    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
-
-    if (needsHeader) {
-      if (sheet.getLastRow() === 0) {
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      } else {
-        const existing = sheet.getDataRange().getValues();
-        const data = existing.length ? existing : [headers];
-        if (asText(data[0][0]) !== headers[0]) {
-          sheet.insertRowBefore(1);
-          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        }
-      }
-    }
-  });
-}
-
-function getSheetByName(name) {
-  const ss = getSpreadsheet();
-  let sheet = ss.getSheetByName(name);
-  if (!sheet) {
-    sheet = ss.insertSheet(name);
-  }
-
-  const headers = SHEET_HEADERS[name] || [];
-  if (headers.length) {
-    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
-    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
-    if (needsHeader) {
-      if (sheet.getLastRow() === 0) {
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      } else {
-        const existing = sheet.getDataRange().getValues();
-        if (asText(existing[0][0]) !== headers[0]) {
-          sheet.insertRowBefore(1);
-          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        }
-      }
-    }
-  }
-
-  return sheet;
-}
 
 function asText(value) {
   return value == null ? "" : String(value).trim();
@@ -87,6 +25,10 @@ function asText(value) {
 function normalizeDate(value) {
   const raw = asText(value);
   if (!raw) return "";
+
+  if (raw instanceof Date) {
+    return Utilities.formatDate(raw, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     return raw;
@@ -102,12 +44,21 @@ function normalizeDate(value) {
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
 
+  const dateObj = new Date(raw);
+  if (!isNaN(dateObj.getTime())) {
+    return Utilities.formatDate(dateObj, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+
   return raw;
 }
 
 function normalizeTime(value) {
   const raw = asText(value).replace(/\./g, ":");
   if (!raw) return "";
+
+  if (raw instanceof Date) {
+    return Utilities.formatDate(raw, Session.getScriptTimeZone(), "HH:mm:ss");
+  }
 
   if (/^\d{1,2}:\d{2}$/.test(raw)) {
     const [h, m] = raw.split(":");
@@ -118,55 +69,82 @@ function normalizeTime(value) {
     return raw;
   }
 
+  const dateObj = new Date(raw);
+  if (!isNaN(dateObj.getTime())) {
+    return Utilities.formatDate(dateObj, Session.getScriptTimeZone(), "HH:mm:ss");
+  }
+
   return raw;
+}
+
+function getSpreadsheet() {
+  if (!SPREADSHEET_ID || SPREADSHEET_ID.indexOf("PASTE_") !== -1) {
+    throw new Error("SPREADSHEET_ID belum diisi. Ganti dengan ID spreadsheet yang benar.");
+  }
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+function getSheetByName(sheetName, createIfMissing) {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet && createIfMissing !== false) {
+    sheet = ss.insertSheet(sheetName);
+    const headers = SHEET_HEADERS[sheetName] || [];
+    if (headers.length > 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+  }
+
+  return sheet;
+}
+
+function ensureSheetStructure() {
+  const ss = getSpreadsheet();
+  const sheetNames = [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI];
+
+  sheetNames.forEach((sheetName) => {
+    const headers = SHEET_HEADERS[sheetName] || [];
+    if (!headers.length) return;
+
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    }
+
+    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
+    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
+
+    if (needsHeader) {
+      if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      } else {
+        sheet.insertRowBefore(1);
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      }
+    }
+  });
+}
+
+function getStudentSheetName() {
+  return SHEET_SISWA;
 }
 
 function readSheetRows(sheetName) {
   const ss = getSpreadsheet();
-  let sheet = ss.getSheetByName(sheetName);
-
-  if (!sheet && sheetName === SHEET_SISWA && ss.getSheetByName(LEGACY_SISWA)) {
-    sheet = ss.getSheetByName(LEGACY_SISWA);
-  }
-
-  if (!sheet) {
-    return [];
-  }
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return [];
 
   const values = sheet.getDataRange().getValues();
-
-  if (!values || values.length < 2) {
-    return [];
-  }
-
   const headers = values[0].map((header) => asText(header).toLowerCase());
+
   return values.slice(1).map((row) => {
-    const rowObj = {};
+    const obj = {};
     headers.forEach((header, idx) => {
-      rowObj[header] = row[idx] ?? "";
+      obj[header] = row[idx] ?? "";
     });
-    return rowObj;
+    return obj;
   });
-}
-
-function writeSheetRows(sheetName, rows) {
-  const sheet = getSheetByName(sheetName);
-  if (!rows || rows.length === 0) {
-    sheet.clear();
-    return;
-  }
-
-  const headers = Object.keys(rows[0]);
-  const values = [headers, ...rows.map((row) => headers.map((key) => row[key] ?? ""))];
-  sheet.clear();
-  sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
-}
-
-function toDateNumber(dateStr) {
-  const norm = normalizeDate(dateStr);
-  if (!norm) return 0;
-  const [y, m, d] = norm.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1).getTime();
 }
 
 function getAdminUsers() {
@@ -179,7 +157,9 @@ function getAdminUsers() {
 }
 
 function getDaftarSiswa(kelasFilter) {
-  const rows = readSheetRows(SHEET_SISWA);
+  const sheetName = getStudentSheetName();
+  const rows = readSheetRows(sheetName);
+
   return rows
     .filter((row) => {
       if (!kelasFilter) return true;
@@ -221,34 +201,46 @@ function parseRequestBody(payload) {
 function setupDefaultSheets() {
   ensureSheetStructure();
 
-  const adminSheet = getSheetByName(SHEET_ADMIN);
+  const adminSheet = getSheetByName(SHEET_ADMIN, true);
   if (adminSheet.getLastRow() <= 1) {
     adminSheet.appendRow(["admin", "admin123", "Admin Utama", "Admin"]);
   }
 
-  const pengunjungSheet = getSheetByName(SHEET_PENGUNJUNG);
-  if (pengunjungSheet.getLastRow() <= 1) {
-    pengunjungSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
-    pengunjungSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
-    pengunjungSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
+  const siswaSheet = getSheetByName(SHEET_SISWA, true);
+  if (siswaSheet.getLastRow() <= 1) {
+    siswaSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
+    siswaSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
+    siswaSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
   }
 }
 
-function doGet(e) {
-  return ContentService
-    .createTextOutput(JSON.stringify({
-      success: true,
-      message: "Google Apps Script backend aktif.",
-      spreadsheetId: SPREADSHEET_ID,
-      sheets: [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI]
-    }))
-    .setMimeType(ContentService.MimeType.JSON);
+function doGet() {
+  try {
+    setupDefaultSheets();
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: "Google Apps Script backend aktif.",
+        spreadsheetId: SPREADSHEET_ID,
+        sheets: [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI]
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        message: err && err.message ? err.message : "Backend gagal diinisialisasi."
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
   let response = { success: false, message: "Aksi tidak dikenali." };
 
   try {
+    setupDefaultSheets();
+
     const rawBody = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
     const body = parseRequestBody(rawBody);
     const action = asText(body.action);
@@ -278,7 +270,34 @@ function doPost(e) {
         }
 
         const token = "gas_" + Utilities.getUuid();
-        response = { success: true, username: matched.username, nama: matched.nama, role: matched.role || "Admin", token };
+        response = {
+          success: true,
+          username: matched.username,
+          nama: matched.nama,
+          role: matched.role || "Admin",
+          token
+        };
+        break;
+      }
+
+      case "googleLogin": {
+        const email = asText(body.email || body.username);
+        const name = asText(body.name || body.nama || email.split("@")[0] || "Pengunjung");
+
+        if (!email || !email.includes("@")) {
+          response = { success: false, message: "Email Google tidak valid." };
+          break;
+        }
+
+        response = {
+          success: true,
+          username: email,
+          nama: name,
+          email,
+          role: "Pengunjung",
+          token: "gas_visitor_" + Utilities.getUuid(),
+          provider: "supabase"
+        };
         break;
       }
 
@@ -304,8 +323,8 @@ function doPost(e) {
           break;
         }
 
-        const sheet = getSheetByName(SHEET_SISWA);
-        const rows = readSheetRows(SHEET_SISWA);
+        const sheet = getSheetByName(getStudentSheetName(), true);
+        const rows = readSheetRows(getStudentSheetName());
         const duplicate = rows.some((row) => {
           const existingQr = asText(row.nomorqr || row.nomorQr);
           const existingBarcode = asText(row.barcode || row.nomorqr || row.nomorQr);
@@ -333,7 +352,8 @@ function doPost(e) {
           break;
         }
 
-        const sheet = getSheetByName(SHEET_SISWA);
+        const sheetName = getStudentSheetName();
+        const sheet = getSheetByName(sheetName, true);
         const values = sheet.getDataRange().getValues();
         let found = false;
 
@@ -352,7 +372,8 @@ function doPost(e) {
 
       case "hapusSiswa": {
         const nomorQr = asText(body.nomorQr);
-        const sheet = getSheetByName(SHEET_SISWA);
+        const sheetName = getStudentSheetName();
+        const sheet = getSheetByName(sheetName, true);
         const values = sheet.getDataRange().getValues();
         let deleted = false;
 
@@ -383,9 +404,9 @@ function doPost(e) {
           break;
         }
 
-        const sheet = getSheetByName(SHEET_PRESENSI);
-        const existing = getPresensiRows().find((r) => {
-          return normalizeDate(r.tanggal) === normalizeDate(tanggal) && asText(r.nomorQr) === nomorQr;
+        const sheet = getSheetByName(SHEET_PRESENSI, true);
+        const existing = getPresensiRows().find((row) => {
+          return normalizeDate(row.tanggal) === normalizeDate(tanggal) && asText(row.nomorQr) === nomorQr;
         });
 
         if (existing) {
@@ -393,8 +414,7 @@ function doPost(e) {
           break;
         }
 
-        const row = [tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan];
-        sheet.appendRow(row);
+        sheet.appendRow([tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan]);
         response = { success: true, nama: nama || nomorQr, status };
         break;
       }

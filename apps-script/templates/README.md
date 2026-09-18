@@ -3,16 +3,16 @@
 Buat 3 sheet dengan nama persis berikut:
 
 1. Admin
-2. Pengunjung
+2. Siswa
 3. Presensi
 
-Catatan: jika Anda masih punya sheet lama bernama Siswa, aplikasi tetap kompatibel, tetapi sheet utama yang dipakai sekarang adalah Pengunjung.
+Catatan: untuk login pengunjung, tidak diperlukan sheet terpisah. Pengunjung cukup login dengan email Google yang valid.
 
 ## Admin.csv
 username,password,nama,role
 admin,admin123,Admin Utama,Admin
 
-## Pengunjung.csv
+## Siswa.csv
 nomorQr,barcode,nama,kelas
 2408001,2408001,AFIFAH SYAHIRA FITRI,8.G
 2408002,2408002,AFIQAH KHAIRUNNISA RIZALOV,8.G
