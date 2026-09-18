@@ -70,7 +70,8 @@ function getAdminUsers() {
 
 function getDaftarSiswa(kelasFilter) {
   const rows = readSheetRows(SHEET_DATA_SISWA).map((row) => ({
-    nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr),
+    // Mendukung berbagai variasi penamaan header pada sheet Data Siswa
+    nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr || row["no qr"] || row.noqr),
     nama: asText(row.nama),
     kelas: asText(row.kelas)
   }));
@@ -214,7 +215,11 @@ function doPost(e) {
       }
 
       case "simpanPresensi": {
-        const id = asText(body.id || "");
+        let id = asText(body.id);
+        if (!id) {
+          id = "P-" + Math.random().toString(36).substring(2, 9).toUpperCase();
+        }
+        
         const nomorQr = asText(body.nomorQr);
         let nama = asText(body.nama);
         let kelas = asText(body.kelas);
@@ -229,20 +234,28 @@ function doPost(e) {
           break;
         }
 
-        if (!nama || !kelas) {
-          const matchedSiswa = getDaftarSiswa().find((s) => s.nomorQr === nomorQr);
+        // Pencarian data siswa secara fleksibel (mengabaikan huruf besar/kecil & spasi berlebih)
+        if (!nama || !kelas || nama === "Tidak Diketahui") {
+          const daftarSiswa = getDaftarSiswa();
+          const cleanTargetQr = nomorQr.toLowerCase();
+          const matchedSiswa = daftarSiswa.find((s) => s.nomorQr.toLowerCase() === cleanTargetQr);
+          
           if (matchedSiswa) {
-            nama = nama || matchedSiswa.nama;
-            kelas = kelas || matchedSiswa.kelas;
+            nama = nama && nama !== "Tidak Diketahui" ? nama : matchedSiswa.nama;
+            kelas = kelas && kelas !== "8.G" ? kelas : matchedSiswa.kelas;
           }
         }
+
+        nama = nama || "Tidak Diketahui";
+        kelas = kelas || "8.G";
 
         if (status === "Hadir" && jam && jam.substring(0, 5) > JAM_BATAS_TERLAMBAT) {
           status = "Terlambat";
         }
 
         const sheet = getSpreadsheet().getSheetByName(SHEET_PRESENSI);
-        sheet.appendRow([id, tanggal, jam, nomorQr, nama || "Tidak Diketahui", kelas || "8.G", status, metode, keterangan]);
+        // Urutan kolom: ID, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan
+        sheet.appendRow([id, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan]);
         response = { success: true, message: "Presensi disimpan." };
         break;
       }
