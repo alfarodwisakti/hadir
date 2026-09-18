@@ -64,6 +64,11 @@ function getSheet(key) {
     if (sheet) break;
   }
 
+  // Tanpa sheet siswa: tidak dibuat otomatis lagi.
+  if (!sheet && key === "siswa") {
+    return null;
+  }
+
   if (!sheet) {
     sheet = ss.insertSheet(config.names[0]);
   }
@@ -176,7 +181,14 @@ function normalizeTime(value) {
 }
 
 function readSheetRows(key) {
+  if (key === "siswa") {
+    const sheet = getSheet(key);
+    if (!sheet) return [];
+  }
+
   const sheet = getSheet(key);
+  if (!sheet) return [];
+
   const headers = SHEET_CONFIG[key].headers;
 
   const lastRow = sheet.getLastRow();
@@ -242,36 +254,12 @@ function getAdminUsers() {
 // ================================================================
 
 function getDaftarSiswa(kelasFilter) {
-  return readSheetRows("siswa")
-    .filter(function(row) {
-      if (!kelasFilter) return true;
-
-      return asText(row.kelas).toUpperCase() ===
-        String(kelasFilter).toUpperCase();
-    })
-    .map(function(row) {
-      const nomorQr = asText(row["nomor qr"]);
-      const barcode = asText(row.barcode) || nomorQr;
-
-      return {
-        nomorQr: nomorQr,
-        barcode: barcode,
-        nama: asText(row.nama),
-        kelas: asText(row.kelas)
-      };
-    });
+  return [];
 }
 
-// Mencari siswa berdasarkan kode yang di-scan, cocok dengan Nomor QR ATAU Barcode.
+// Siswa tidak lagi menggunakan sheet terpisah; scan langsung ditulis ke Presensi.
 function findSiswaByCode(code) {
-  const target = asText(code).toLowerCase();
-
-  if (!target) return null;
-
-  return getDaftarSiswa().find(function(item) {
-    return item.nomorQr.toLowerCase() === target ||
-      item.barcode.toLowerCase() === target;
-  }) || null;
+  return null;
 }
 
 // ================================================================
@@ -299,9 +287,8 @@ function getPresensiRows() {
 // ================================================================
 
 function doGet(e) {
-  // Pastikan semua sheet dan header tersedia.
+  // Hanya sheet yang benar-benar dipakai: Admin dan Presensi.
   getSheet("admin");
-  getSheet("siswa");
   getSheet("presensi");
 
   return outputJson({
@@ -587,8 +574,8 @@ function doPost(e) {
       case "simpanPresensi": {
         const kodeDiscan = asText(body.nomorQr);
 
-        let nama = asText(body.nama || "");
-        let kelas = asText(body.kelas || "");
+        let nama = asText(body.nama || "Tidak Diketahui");
+        let kelas = asText(body.kelas || "Umum");
 
         const tanggal =
           normalizeDate(body.tanggal || new Date());
@@ -613,23 +600,7 @@ function doPost(e) {
           break;
         }
 
-        // Cocokkan kode yang di-scan dengan Nomor QR ATAU Barcode di sheet Siswa.
-        const siswa = findSiswaByCode(kodeDiscan);
-        const nomorQr = siswa ? siswa.nomorQr : kodeDiscan;
-
-        if (siswa) {
-          nama = siswa.nama;
-          kelas = siswa.kelas;
-        }
-
-        if (!nama || !kelas) {
-          response = {
-            success: false,
-            message:
-              "Nomor QR/Barcode belum terdaftar pada Data Siswa."
-          };
-          break;
-        }
+        const nomorQr = kodeDiscan;
 
         // Otomatis Terlambat setelah 07:15.
         if (
@@ -640,8 +611,6 @@ function doPost(e) {
           status = "Terlambat";
         }
 
-        // Lock supaya scan yang hampir bersamaan (dari beberapa device) tidak
-        // membuat baris duplikat pada hari yang sama.
         const lock = LockService.getScriptLock();
         lock.waitLock(15000);
 
@@ -667,7 +636,7 @@ function doPost(e) {
 
           const sheet = getSheet("presensi");
 
-          // 8 KOLOM SESUAI TABEL PRESENSI:
+          // 8 KOLOM WAJIB SESUAI TABEL PRESENSI:
           // Tanggal | Jam | Nomor QR | Nama | Kelas | Status | Metode | Keterangan
           sheet.appendRow([
             tanggal,
@@ -820,9 +789,6 @@ function doPost(e) {
         const kelas =
           asText(body.kelas || "8.G");
 
-        const siswa =
-          getDaftarSiswa(kelas);
-
         const records =
           getPresensiRows().filter(function(row) {
             const rowDate =
@@ -838,50 +804,36 @@ function doPost(e) {
 
         const rekap = {};
 
-        siswa.forEach(function(item) {
-          rekap[item.nomorQr] = {
-            nomorQr: item.nomorQr,
-            nama: item.nama,
-            kelas: item.kelas,
-            hadir: 0,
-            izin: 0,
-            sakit: 0,
-            alpa: 0,
-            terlambat: 0,
-            persenHadir: 0
-          };
-        });
-
-        let totalHadir = 0;
-        let totalIzin = 0;
-        let totalSakit = 0;
-        let totalAlpa = 0;
-
         records.forEach(function(record) {
-          const target =
-            rekap[record.nomorQr];
-
-          if (!target) return;
+          const key = asText(record.nomorQr) || asText(record.nama);
+          if (!rekap[key]) {
+            rekap[key] = {
+              nomorQr: asText(record.nomorQr),
+              nama: asText(record.nama),
+              kelas: asText(record.kelas),
+              hadir: 0,
+              izin: 0,
+              sakit: 0,
+              alpa: 0,
+              terlambat: 0,
+              persenHadir: 0
+            };
+          }
 
           const status =
             asText(record.status);
 
           if (status === "Hadir") {
-            target.hadir++;
-            totalHadir++;
+            rekap[key].hadir++;
           } else if (status === "Terlambat") {
-            target.hadir++;
-            target.terlambat++;
-            totalHadir++;
+            rekap[key].hadir++;
+            rekap[key].terlambat++;
           } else if (status === "Izin") {
-            target.izin++;
-            totalIzin++;
+            rekap[key].izin++;
           } else if (status === "Sakit") {
-            target.sakit++;
-            totalSakit++;
+            rekap[key].sakit++;
           } else if (status === "Alpa") {
-            target.alpa++;
-            totalAlpa++;
+            rekap[key].alpa++;
           }
         });
 
@@ -904,6 +856,27 @@ function doPost(e) {
 
             return item;
           });
+
+        const totalHadir =
+          records.filter(function(row) {
+            const status = asText(row.status);
+            return status === "Hadir" || status === "Terlambat";
+          }).length;
+
+        const totalIzin =
+          records.filter(function(row) {
+            return asText(row.status) === "Izin";
+          }).length;
+
+        const totalSakit =
+          records.filter(function(row) {
+            return asText(row.status) === "Sakit";
+          }).length;
+
+        const totalAlpa =
+          records.filter(function(row) {
+            return asText(row.status) === "Alpa";
+          }).length;
 
         perSiswa.sort(function(a, b) {
           return a.nama.localeCompare(b.nama, "id");

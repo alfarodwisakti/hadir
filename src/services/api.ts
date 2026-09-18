@@ -326,20 +326,22 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
   }
 
   if (action === "simpanPresensi") {
-    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas } = payload;
-    const list = getLocalSiswa();
-    const siswa = list.find(s => s.nomorQr.trim() === String(nomorQr).trim());
-    if (!siswa) {
-      return { success: false, message: `Nomor QR "${nomorQr}" tidak ditemukan / tidak terdaftar.` };
+    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas, nama: namaInput } = payload;
+    const cleanNomorQr = String(nomorQr ?? "").trim();
+    const nama = String(namaInput ?? "Tidak Diketahui").trim() || "Tidak Diketahui";
+    const kelasNama = String(kelas ?? DEFAULT_KELAS).trim() || DEFAULT_KELAS;
+
+    if (!cleanNomorQr) {
+      return { success: false, message: "Nomor QR wajib diisi." };
     }
 
     const records = getLocalRecords();
     const targetTanggalNorm = normalizeDateString(tanggal);
     const existing = records.find(
-      r => r.nomorQr.trim() === String(nomorQr).trim() && normalizeDateString(r.tanggal) === targetTanggalNorm
+      r => r.nomorQr.trim() === cleanNomorQr && normalizeDateString(r.tanggal) === targetTanggalNorm
     );
     if (existing) {
-      return { success: false, message: `${siswa.nama} sudah tercatat presensi hari ini (${existing.status}).` };
+      return { success: false, message: `${nama} sudah tercatat presensi hari ini (${existing.status}).` };
     }
 
     let finalStatus: StatusPresensi = statusInput;
@@ -353,9 +355,9 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       id: "rec_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6),
       tanggal: tanggal || formatTanggal(),
       jam: jam || formatJam(),
-      nomorQr: siswa.nomorQr,
-      nama: siswa.nama,
-      kelas: kelas || siswa.kelas || DEFAULT_KELAS,
+      nomorQr: cleanNomorQr,
+      nama,
+      kelas: kelasNama,
       status: finalStatus,
       metode: finalMetode,
       keterangan: keterangan || ""
@@ -366,7 +368,7 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
 
     return {
       success: true,
-      nama: siswa.nama,
+      nama,
       status: finalStatus
     };
   }
