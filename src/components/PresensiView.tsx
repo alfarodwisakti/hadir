@@ -152,7 +152,7 @@ export const PresensiView: React.FC = () => {
       return targetQr === String(nomorQr).trim() || targetBarcode === String(nomorQr).trim();
     });
 
-    const payloadNama = student?.nama || "";
+    const payloadNama = student?.nama || "Tidak Diketahui";
     const payloadKelas = student?.kelas || DEFAULT_KELAS;
 
     const res = await callAPI("simpanPresensi", {

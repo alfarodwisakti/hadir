@@ -107,11 +107,7 @@ function normalizeTime(value) {
 
 function readSheetRows(sheetName) {
   const ss = getSpreadsheet();
-  let sheet = ss.getSheetByName(sheetName);
-
-  if (!sheet && sheetName === SHEET_SISWA && ss.getSheetByName(LEGACY_SISWA)) {
-    sheet = ss.getSheetByName(LEGACY_SISWA);
-  }
+  const sheet = ss.getSheetByName(sheetName);
 
   if (!sheet) {
     return [];
@@ -206,7 +202,7 @@ function doGet(e) {
       success: true,
       message: "Google Apps Script backend aktif.",
       spreadsheetId: SPREADSHEET_ID,
-      sheets: [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI]
+      sheets: [SHEET_ADMIN, SHEET_PRESENSI]
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -261,7 +257,6 @@ function doPost(e) {
 
       case "tambahSiswa": {
         const nomorQr = asText(body.nomorQr);
-        const barcode = asText(body.barcode || body.nomorQr);
         const nama = asText(body.nama);
         const kelas = asText(body.kelas);
 
@@ -270,27 +265,15 @@ function doPost(e) {
           break;
         }
 
-        const sheet = getSheetByName(SHEET_SISWA);
-        const rows = readSheetRows(SHEET_SISWA);
-        const duplicate = rows.some((row) => {
-          const existingQr = asText(row.nomorqr || row.nomorQr);
-          const existingBarcode = asText(row.barcode || row.nomorqr || row.nomorQr);
-          return existingQr === nomorQr || existingBarcode === barcode;
-        });
-
-        if (duplicate) {
-          response = { success: false, message: "Nomor QR atau barcode sudah terdaftar." };
-          break;
-        }
-
-        sheet.appendRow([nomorQr, barcode, nama, kelas]);
-        response = { success: true };
+        response = {
+          success: true,
+          message: "Manajemen siswa tidak menggunakan sheet Siswa lagi; data diproses dari aplikasi lokal sesuai kebutuhan Anda."
+        };
         break;
       }
 
       case "editSiswa": {
         const nomorQr = asText(body.nomorQr);
-        const barcode = asText(body.barcode || body.nomorQr);
         const nama = asText(body.nama);
         const kelas = asText(body.kelas);
 
@@ -299,38 +282,25 @@ function doPost(e) {
           break;
         }
 
-        const sheet = getSheetByName(SHEET_SISWA);
-        const values = sheet.getDataRange().getValues();
-        let found = false;
-
-        for (let i = 1; i < values.length; i += 1) {
-          const currentQr = asText(values[i][0]);
-          if (currentQr === nomorQr) {
-            sheet.getRange(i + 1, 1, 1, 4).setValues([[nomorQr, barcode, nama, kelas]]);
-            found = true;
-            break;
-          }
-        }
-
-        response = found ? { success: true } : { success: false, message: "Data siswa tidak ditemukan." };
+        response = {
+          success: true,
+          message: "Perubahan data siswa diproses di sisi aplikasi; tidak ada sheet Siswa lagi pada backend."
+        };
         break;
       }
 
       case "hapusSiswa": {
         const nomorQr = asText(body.nomorQr);
-        const sheet = getSheetByName(SHEET_SISWA);
-        const values = sheet.getDataRange().getValues();
-        let deleted = false;
 
-        for (let i = values.length - 1; i >= 1; i -= 1) {
-          if (asText(values[i][0]) === nomorQr) {
-            sheet.deleteRow(i + 1);
-            deleted = true;
-            break;
-          }
+        if (!nomorQr) {
+          response = { success: false, message: "Nomor QR wajib diisi." };
+          break;
         }
 
-        response = deleted ? { success: true } : { success: false, message: "Data siswa tidak ditemukan." };
+        response = {
+          success: true,
+          message: "Hapus data siswa tidak menggunakan sheet Siswa pada backend."
+        };
         break;
       }
 
