@@ -146,12 +146,22 @@ export const PresensiView: React.FC = () => {
   ) => {
     const { playSuccessSound = true, playErrorSound = true } = options;
     const nowJam = formatJam();
+    const student = siswaList.find((item) => {
+      const targetQr = String(item.nomorQr ?? "").trim();
+      const targetBarcode = String(item.barcode ?? item.nomorQr ?? "").trim();
+      return targetQr === String(nomorQr).trim() || targetBarcode === String(nomorQr).trim();
+    });
+
+    const payloadNama = student?.nama || "";
+    const payloadKelas = student?.kelas || DEFAULT_KELAS;
+
     const res = await callAPI("simpanPresensi", {
       nomorQr,
+      nama: payloadNama,
       status: statusInput,
       metode,
       keterangan,
-      kelas: DEFAULT_KELAS,
+      kelas: payloadKelas,
       tanggal: formatTanggal(),
       jam: nowJam
     });

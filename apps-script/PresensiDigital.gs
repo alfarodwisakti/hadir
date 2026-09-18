@@ -418,8 +418,13 @@ function doPost(e) {
 
       case "simpanPresensi": {
         const nomorQr = asText(body.nomorQr);
-        const nama = asText(body.nama || "");
-        const kelas = asText(body.kelas || "8.G");
+        const allStudents = getDaftarSiswa();
+        const matchedStudent = allStudents.find((student) => {
+          return asText(student.nomorQr) === nomorQr || asText(student.barcode) === nomorQr;
+        });
+
+        const nama = asText(body.nama || (matchedStudent ? matchedStudent.nama : ""));
+        const kelas = asText(body.kelas || (matchedStudent ? matchedStudent.kelas : "8.G"));
         const tanggal = normalizeDate(body.tanggal || new Date());
         const jam = normalizeTime(body.jam || new Date());
         const status = asText(body.status || "Hadir");
