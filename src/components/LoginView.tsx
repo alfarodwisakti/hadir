@@ -16,7 +16,7 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
-  const logoUrl = new URL('../../logo kelas.jfif', import.meta.url).href;
+  const logoUrl = new URL('../../LOGO SMP 18 X KELAS 8G.png', import.meta.url).href;
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
