@@ -6,7 +6,7 @@
 //
 // Catatan: isi SPREADSHEET_ID dengan ID spreadsheet Anda.
 
-const SPREADSHEET_ID = "PASTE_SPREADSHEET_ID_HERE";
+const SPREADSHEET_ID = "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo";
 const SHEET_ADMIN = "Admin";
 const SHEET_SISWA = "Siswa";
 const SHEET_PRESENSI = "Presensi";
