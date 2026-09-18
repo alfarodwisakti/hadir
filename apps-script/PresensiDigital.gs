@@ -12,6 +12,12 @@ const SHEET_SISWA = "Siswa";
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
+const SHEET_ALIASES = {
+  [SHEET_ADMIN]: [SHEET_ADMIN],
+  [SHEET_SISWA]: [SHEET_SISWA, "Data Siswa"],
+  [SHEET_PRESENSI]: [SHEET_PRESENSI]
+};
+
 const SHEET_HEADERS = {
   [SHEET_ADMIN]: ["username", "password", "nama", "role"],
   [SHEET_SISWA]: ["nomorQr", "barcode", "nama", "kelas"],
@@ -84,12 +90,32 @@ function getSpreadsheet() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
+function resolveSheetName(sheetName) {
+  const ss = getSpreadsheet();
+  const candidates = SHEET_ALIASES[sheetName] || [sheetName];
+
+  for (const candidate of candidates) {
+    if (ss.getSheetByName(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
 function getSheetByName(sheetName, createIfMissing) {
   const ss = getSpreadsheet();
-  let sheet = ss.getSheetByName(sheetName);
+  const candidates = SHEET_ALIASES[sheetName] || [sheetName];
+  let sheet = null;
+
+  for (const candidate of candidates) {
+    sheet = ss.getSheetByName(candidate);
+    if (sheet) break;
+  }
 
   if (!sheet && createIfMissing !== false) {
-    sheet = ss.insertSheet(sheetName);
+    const targetName = candidates[0];
+    sheet = ss.insertSheet(targetName);
     const headers = SHEET_HEADERS[sheetName] || [];
     if (headers.length > 0) {
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
@@ -127,12 +153,13 @@ function ensureSheetStructure() {
 }
 
 function getStudentSheetName() {
-  return SHEET_SISWA;
+  return resolveSheetName(SHEET_SISWA);
 }
 
 function readSheetRows(sheetName) {
   const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(sheetName);
+  const actualSheetName = resolveSheetName(sheetName);
+  const sheet = ss.getSheetByName(actualSheetName);
   if (!sheet || sheet.getLastRow() < 2) return [];
 
   const values = sheet.getDataRange().getValues();
