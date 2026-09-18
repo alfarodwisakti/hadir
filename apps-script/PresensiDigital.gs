@@ -8,76 +8,60 @@
 
 const SPREADSHEET_ID = "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo";
 const SHEET_ADMIN = "Admin";
-const SHEET_PENGUNJUNG = "Pengunjung";
-const SHEET_SISWA = "Pengunjung";
-const LEGACY_SISWA = "Siswa";
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
-const SHEET_HEADERS = {
-  [SHEET_ADMIN]: ["username", "password", "nama", "role"],
-  [SHEET_PENGUNJUNG]: ["nomorQr", "barcode", "nama", "kelas"],
-  [SHEET_PRESENSI]: ["tanggal", "jam", "nomorQr", "nama", "kelas", "status", "metode", "keterangan"]
+const SHEET_CONFIG = {
+  [SHEET_ADMIN]: {
+    names: [SHEET_ADMIN],
+    headers: ["Username", "Password", "Nama", "Role"]
+  },
+  [SHEET_PRESENSI]: {
+    names: [SHEET_PRESENSI],
+    headers: ["Tanggal", "Jam", "Nomor QR", "Nama", "Kelas", "Status", "Metode", "Keterangan"]
+  }
 };
 
 function getSpreadsheet() {
+  if (!SPREADSHEET_ID || SPREADSHEET_ID === "PASTE_SPREADSHEET_ID_HERE") {
+    throw new Error("SPREADSHEET_ID belum diisi.");
+  }
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
-function ensureSheetStructure() {
-  const ss = getSpreadsheet();
-  const names = [SHEET_ADMIN, SHEET_PENGUNJUNG, SHEET_PRESENSI];
-
-  names.forEach((name) => {
-    let sheet = ss.getSheetByName(name);
-    if (!sheet) {
-      sheet = ss.insertSheet(name);
-    }
-
-    const headers = SHEET_HEADERS[name] || [];
-    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
-    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
-
-    if (needsHeader) {
-      if (sheet.getLastRow() === 0) {
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      } else {
-        const existing = sheet.getDataRange().getValues();
-        const data = existing.length ? existing : [headers];
-        if (asText(data[0][0]) !== headers[0]) {
-          sheet.insertRowBefore(1);
-          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        }
-      }
-    }
-  });
-}
-
 function getSheetByName(name) {
+  const config = SHEET_CONFIG[name];
+  if (!config) {
+    throw new Error("Nama sheet tidak dikenal: " + name);
+  }
+
   const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
 
-  const headers = SHEET_HEADERS[name] || [];
-  if (headers.length) {
-    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
-    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
-    if (needsHeader) {
-      if (sheet.getLastRow() === 0) {
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      } else {
-        const existing = sheet.getDataRange().getValues();
-        if (asText(existing[0][0]) !== headers[0]) {
-          sheet.insertRowBefore(1);
-          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-        }
-      }
-    }
+  const headers = config.headers;
+  const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
+  const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
+
+  if (needsHeader) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+
+  if (name === SHEET_PRESENSI) {
+    sheet.getRange("C:C").setNumberFormat("@");
   }
 
   return sheet;
+}
+
+function ensureSheetStructure() {
+  getSheetByName(SHEET_ADMIN);
+  getSheetByName(SHEET_PRESENSI);
 }
 
 function asText(value) {
@@ -179,18 +163,7 @@ function getAdminUsers() {
 }
 
 function getDaftarSiswa(kelasFilter) {
-  const rows = readSheetRows(SHEET_SISWA);
-  return rows
-    .filter((row) => {
-      if (!kelasFilter) return true;
-      return asText(row.kelas).toUpperCase() === String(kelasFilter).toUpperCase();
-    })
-    .map((row) => ({
-      nomorQr: asText(row.nomorqr || row.nomorQr),
-      barcode: asText(row.barcode || row.nomorqr || row.nomorQr),
-      nama: asText(row.nama),
-      kelas: asText(row.kelas)
-    }));
+  return [];
 }
 
 function getPresensiRows() {
@@ -224,13 +197,6 @@ function setupDefaultSheets() {
   const adminSheet = getSheetByName(SHEET_ADMIN);
   if (adminSheet.getLastRow() <= 1) {
     adminSheet.appendRow(["admin", "admin123", "Admin Utama", "Admin"]);
-  }
-
-  const pengunjungSheet = getSheetByName(SHEET_PENGUNJUNG);
-  if (pengunjungSheet.getLastRow() <= 1) {
-    pengunjungSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
-    pengunjungSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
-    pengunjungSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
   }
 }
 
@@ -370,17 +336,21 @@ function doPost(e) {
 
       case "simpanPresensi": {
         const nomorQr = asText(body.nomorQr);
-        const nama = asText(body.nama || "");
+        const nama = asText(body.nama || "Tidak Diketahui");
         const kelas = asText(body.kelas || "8.G");
         const tanggal = normalizeDate(body.tanggal || new Date());
         const jam = normalizeTime(body.jam || new Date());
-        const status = asText(body.status || "Hadir");
+        let status = asText(body.status || "Hadir");
         const metode = asText(body.metode || "Scan");
         const keterangan = asText(body.keterangan || "");
 
         if (!nomorQr) {
           response = { success: false, message: "Nomor QR wajib diisi." };
           break;
+        }
+
+        if (status === "Hadir" && jam && jam.substring(0, 5) > JAM_BATAS_TERLAMBAT) {
+          status = "Terlambat";
         }
 
         const sheet = getSheetByName(SHEET_PRESENSI);
@@ -395,7 +365,7 @@ function doPost(e) {
 
         const row = [tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan];
         sheet.appendRow(row);
-        response = { success: true, nama: nama || nomorQr, status };
+        response = { success: true, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan };
         break;
       }
 

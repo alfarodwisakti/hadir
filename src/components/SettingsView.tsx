@@ -197,12 +197,7 @@ function doPost(e) {
             Pastikan file Google Spreadsheet Anda memiliki 3 tab dengan nama persis dan urutan header kolom berikut:
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="font-bold text-slate-900 mb-1">Sheet "Siswa"</div>
-              <div className="font-mono text-[11px] text-blue-600">Nomor QR | Nama | Kelas</div>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <div className="font-bold text-slate-900 mb-1">Sheet "Admin"</div>
               <div className="font-mono text-[11px] text-blue-600">Username | Password | Nama | Role</div>
@@ -211,7 +206,7 @@ function doPost(e) {
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
               <div className="font-bold text-slate-900 mb-1">Sheet "Presensi"</div>
               <div className="font-mono text-[11px] text-blue-600 leading-tight">
-                ID | Tanggal | Jam | Nomor QR | Nama | Kelas | Status | Metode | Keterangan
+                Tanggal | Jam | Nomor QR | Nama | Kelas | Status | Metode | Keterangan
               </div>
             </div>
           </div>
