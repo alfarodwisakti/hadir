@@ -12,8 +12,43 @@ const SHEET_SISWA = "Siswa";
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
+const SHEET_HEADERS = {
+  [SHEET_ADMIN]: ["username", "password", "nama", "role"],
+  [SHEET_SISWA]: ["nomorQr", "barcode", "nama", "kelas"],
+  [SHEET_PRESENSI]: ["tanggal", "jam", "nomorQr", "nama", "kelas", "status", "metode", "keterangan"]
+};
+
 function getSpreadsheet() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+function ensureSheetStructure() {
+  const ss = getSpreadsheet();
+  const names = [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI];
+
+  names.forEach((name) => {
+    let sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      sheet = ss.insertSheet(name);
+    }
+
+    const headers = SHEET_HEADERS[name] || [];
+    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
+    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
+
+    if (needsHeader) {
+      if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      } else {
+        const existing = sheet.getDataRange().getValues();
+        const data = existing.length ? existing : [headers];
+        if (asText(data[0][0]) !== headers[0]) {
+          sheet.insertRowBefore(1);
+          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        }
+      }
+    }
+  });
 }
 
 function getSheetByName(name) {
@@ -22,6 +57,24 @@ function getSheetByName(name) {
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
+
+  const headers = SHEET_HEADERS[name] || [];
+  if (headers.length) {
+    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
+    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
+    if (needsHeader) {
+      if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      } else {
+        const existing = sheet.getDataRange().getValues();
+        if (asText(existing[0][0]) !== headers[0]) {
+          sheet.insertRowBefore(1);
+          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        }
+      }
+    }
+  }
+
   return sheet;
 }
 
@@ -151,6 +204,22 @@ function parseRequestBody(payload) {
     }
   }
   return payload;
+}
+
+function setupDefaultSheets() {
+  ensureSheetStructure();
+
+  const adminSheet = getSheetByName(SHEET_ADMIN);
+  if (adminSheet.getLastRow() <= 1) {
+    adminSheet.appendRow(["admin", "admin123", "Admin Utama", "Admin"]);
+  }
+
+  const siswaSheet = getSheetByName(SHEET_SISWA);
+  if (siswaSheet.getLastRow() <= 1) {
+    siswaSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
+    siswaSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
+    siswaSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
+  }
 }
 
 function doGet(e) {
