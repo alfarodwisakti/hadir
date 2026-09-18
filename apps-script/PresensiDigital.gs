@@ -1,6 +1,6 @@
 // Google Apps Script backend untuk Presensi Digital 8.G
 // 1. Buat spreadsheet baru atau gunakan spreadsheet yang sama.
-// 2. Pastikan sheet bernama: Admin, Siswa, Presensi
+// 2. Pastikan sheet bernama: Admin, Data Siswa, Presensi
 // 3. Deploy sebagai Web App: "Anyone" dengan akses ke aplikasi
 // 4. Salin URL hasil deploy ke pengaturan aplikasi web di Settings
 //
@@ -8,6 +8,7 @@
 
 const SPREADSHEET_ID = "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo";
 const SHEET_ADMIN = "Admin";
+const SHEET_DATA_SISWA = "Data Siswa";
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
@@ -16,9 +17,13 @@ const SHEET_CONFIG = {
     names: [SHEET_ADMIN],
     headers: ["Username", "Password", "Nama", "Role"]
   },
+  [SHEET_DATA_SISWA]: {
+    names: [SHEET_DATA_SISWA],
+    headers: ["Nomor QR", "Nama", "Kelas"]
+  },
   [SHEET_PRESENSI]: {
     names: [SHEET_PRESENSI],
-    headers: ["Tanggal", "Jam", "Nomor QR", "Nama", "Kelas", "Status", "Metode", "Keterangan"]
+    headers: ["ID", "Tanggal", "Jam", "Nomor QR", "Nama", "Kelas", "Status", "Metode", "Keterangan"]
   }
 };
 
@@ -53,7 +58,9 @@ function getSheetByName(name) {
   sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
 
   if (name === SHEET_PRESENSI) {
-    sheet.getRange("C:C").setNumberFormat("@");
+    sheet.getRange("D:D").setNumberFormat("@"); // Format teks untuk Nomor QR (kolom ke-4)
+  } else if (name === SHEET_DATA_SISWA) {
+    sheet.getRange("A:A").setNumberFormat("@"); // Format teks untuk Nomor QR
   }
 
   return sheet;
@@ -61,6 +68,7 @@ function getSheetByName(name) {
 
 function ensureSheetStructure() {
   getSheetByName(SHEET_ADMIN);
+  getSheetByName(SHEET_DATA_SISWA);
   getSheetByName(SHEET_PRESENSI);
 }
 
@@ -142,13 +150,6 @@ function writeSheetRows(sheetName, rows) {
   sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
 }
 
-function toDateNumber(dateStr) {
-  const norm = normalizeDate(dateStr);
-  if (!norm) return 0;
-  const [y, m, d] = norm.split("-").map(Number);
-  return new Date(y, (m || 1) - 1, d || 1).getTime();
-}
-
 function getAdminUsers() {
   return readSheetRows(SHEET_ADMIN).map((row) => ({
     username: asText(row.username),
@@ -159,14 +160,25 @@ function getAdminUsers() {
 }
 
 function getDaftarSiswa(kelasFilter) {
-  return [];
+  const rows = readSheetRows(SHEET_DATA_SISWA).map((row) => ({
+    nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr),
+    nama: asText(row.nama),
+    kelas: asText(row.kelas)
+  }));
+
+  if (!kelasFilter) {
+    return rows;
+  }
+
+  return rows.filter((item) => item.kelas.toUpperCase() === kelasFilter.toUpperCase());
 }
 
 function getPresensiRows() {
   return readSheetRows(SHEET_PRESENSI).map((row) => ({
+    id: asText(row.id),
     tanggal: asText(row.tanggal),
     jam: normalizeTime(row.jam),
-    nomorQr: asText(row.nomorqr || row.nomorQr),
+    nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr),
     nama: asText(row.nama),
     kelas: asText(row.kelas),
     status: asText(row.status),
@@ -202,7 +214,7 @@ function doGet(e) {
       success: true,
       message: "Google Apps Script backend aktif.",
       spreadsheetId: SPREADSHEET_ID,
-      sheets: [SHEET_ADMIN, SHEET_PRESENSI]
+      sheets: [SHEET_ADMIN, SHEET_DATA_SISWA, SHEET_PRESENSI]
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -265,10 +277,17 @@ function doPost(e) {
           break;
         }
 
-        response = {
-          success: true,
-          message: "Manajemen siswa tidak menggunakan sheet Siswa lagi; data diproses dari aplikasi lokal sesuai kebutuhan Anda."
-        };
+        const sheet = getSheetByName(SHEET_DATA_SISWA);
+        const siswaList = getDaftarSiswa();
+        const exists = siswaList.some((s) => s.nomorQr === nomorQr);
+
+        if (exists) {
+          response = { success: false, message: "Nomor QR sudah terdaftar pada siswa lain." };
+          break;
+        }
+
+        sheet.appendRow([nomorQr, nama, kelas]);
+        response = { success: true, message: "Data siswa berhasil ditambahkan." };
         break;
       }
 
@@ -282,10 +301,25 @@ function doPost(e) {
           break;
         }
 
-        response = {
-          success: true,
-          message: "Perubahan data siswa diproses di sisi aplikasi; tidak ada sheet Siswa lagi pada backend."
-        };
+        const sheet = getSheetByName(SHEET_DATA_SISWA);
+        const dataRange = sheet.getDataRange().getValues();
+        let found = false;
+
+        for (let i = 1; i < dataRange.length; i++) {
+          if (String(dataRange[i][0]).trim() === nomorQr) {
+            sheet.getRange(i + 1, 2).setValue(nama);
+            sheet.getRange(i + 1, 3).setValue(kelas);
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          response = { success: false, message: "Data siswa dengan Nomor QR tersebut tidak ditemukan." };
+          break;
+        }
+
+        response = { success: true, message: "Data siswa berhasil diperbarui." };
         break;
       }
 
@@ -297,17 +331,32 @@ function doPost(e) {
           break;
         }
 
-        response = {
-          success: true,
-          message: "Hapus data siswa tidak menggunakan sheet Siswa pada backend."
-        };
+        const sheet = getSheetByName(SHEET_DATA_SISWA);
+        const dataRange = sheet.getDataRange().getValues();
+        let foundIndex = -1;
+
+        for (let i = 1; i < dataRange.length; i++) {
+          if (String(dataRange[i][0]).trim() === nomorQr) {
+            foundIndex = i + 1;
+            break;
+          }
+        }
+
+        if (foundIndex === -1) {
+          response = { success: false, message: "Data siswa tidak ditemukan." };
+          break;
+        }
+
+        sheet.deleteRow(foundIndex);
+        response = { success: true, message: "Data siswa berhasil dihapus." };
         break;
       }
 
       case "simpanPresensi": {
+        const id = asText(body.id || "");
         const nomorQr = asText(body.nomorQr);
-        const nama = asText(body.nama || "Tidak Diketahui");
-        const kelas = asText(body.kelas || "8.G");
+        let nama = asText(body.nama);
+        let kelas = asText(body.kelas);
         const tanggal = normalizeDate(body.tanggal || new Date());
         const jam = normalizeTime(body.jam || new Date());
         let status = asText(body.status || "Hadir");
@@ -318,6 +367,18 @@ function doPost(e) {
           response = { success: false, message: "Nomor QR wajib diisi." };
           break;
         }
+
+        // Jika nama/kelas kosong dari frontend, cari otomatis dari sheet Data Siswa
+        if (!nama || !kelas) {
+          const matchedSiswa = getDaftarSiswa().find((s) => s.nomorQr === nomorQr);
+          if (matchedSiswa) {
+            nama = nama || matchedSiswa.nama;
+            kelas = kelas || matchedSiswa.kelas;
+          }
+        }
+
+        nama = nama || "Tidak Diketahui";
+        kelas = kelas || "8.G";
 
         if (status === "Hadir" && jam && jam.substring(0, 5) > JAM_BATAS_TERLAMBAT) {
           status = "Terlambat";
@@ -333,9 +394,9 @@ function doPost(e) {
           break;
         }
 
-        const row = [tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan];
+        const row = [id, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan];
         sheet.appendRow(row);
-        response = { success: true, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan };
+        response = { success: true, id, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan };
         break;
       }
 
@@ -362,6 +423,7 @@ function doPost(e) {
           else if (status === "Alpa") alpa += 1;
 
           log.push({
+            id: row.id,
             jam: row.jam,
             nomorQr: row.nomorQr,
             nama: row.nama,
