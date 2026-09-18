@@ -24,12 +24,15 @@ export default function App() {
 
   useEffect(() => {
     const savedUser = getSession();
-    if (savedUser) {
+    if (savedUser && savedUser.provider === 'supabase' && supabase) {
       setUser(savedUser);
+    } else if (savedUser) {
+      clearSession();
+      setUser(null);
     }
 
     if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const hydrateSupabaseUser = (session: any) => {
         if (!session?.user) {
           clearSession();
           setUser(null);
@@ -47,6 +50,14 @@ export default function App() {
 
         saveSession(nextUser);
         setUser(nextUser);
+      };
+
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        hydrateSupabaseUser(session);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        hydrateSupabaseUser(session);
       });
 
       setIsReady(true);
@@ -56,7 +67,11 @@ export default function App() {
     setIsReady(true);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => undefined);
+    }
+
     clearSession();
     setUser(null);
     setCurrentTab('dashboard');

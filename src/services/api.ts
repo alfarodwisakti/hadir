@@ -238,6 +238,13 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     const email = String(payload?.email || "").trim();
     const name = String(payload?.name || payload?.nama || "").trim() || email.split('@')[0] || "Siswa";
 
+    if (!payload?.fromSupabase) {
+      return {
+        success: false,
+        message: "Login pengunjung harus melalui Supabase. Fallback lokal tidak diizinkan untuk akses Google."
+      };
+    }
+
     if (!email || !email.includes('@')) {
       return { success: false, message: "Login Supabase gagal: email tidak valid." };
     }
