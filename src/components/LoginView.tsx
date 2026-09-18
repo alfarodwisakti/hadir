@@ -16,6 +16,8 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
+  const logoUrl = new URL('../../logo kelas.jfif', import.meta.url).href;
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -139,8 +141,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         <div className="w-full max-w-md justify-self-center relative z-10">
           <div className="bg-white/8 backdrop-blur-2xl rounded-[32px] p-6 sm:p-8 shadow-[0_30px_100px_rgba(15,23,42,0.85)] border border-cyan-300/10 space-y-6">
             <div className="text-center space-y-3">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-[0_20px_40px_rgba(59,130,246,0.45)] ring-4 ring-white/10">
-                <GraduationCap className="w-9 h-9" />
+              <div className="flex justify-center">
+                <img
+                  src={logoUrl}
+                  alt="Logo sekolah"
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-2xl bg-white/90 shadow-[0_18px_35px_rgba(15,23,42,0.45)] ring-4 ring-white/10"
+                />
               </div>
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
