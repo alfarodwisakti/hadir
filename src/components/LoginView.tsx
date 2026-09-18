@@ -145,17 +145,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <img
                   src={logoUrl}
                   alt="Logo sekolah"
-                  className="w-28 h-28 sm:w-32 sm:h-32 lg:w-36 lg:h-36 object-contain"
+                  className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain"
                 />
               </div>
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
                   Smart School
                 </div>
-                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">Presensi Digital 8.G</h1>
+                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">SMP NEGERI 18 PADANG</h1>
               </div>
               <p className="text-sm text-slate-300 font-medium">
-                Sistem absensi &amp; rekapitulasi kehadiran siswa secara modern.
+                Presensi Digital Kelas 8.G
               </p>
             </div>
 
