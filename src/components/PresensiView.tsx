@@ -26,6 +26,8 @@ interface SessionLogItem {
 }
 
 export const PresensiView: React.FC = () => {
+  const scanSoundUrl = new URL('../../store-scanner-beep-sound-effect.mp3', import.meta.url).href;
+
   const [activeTab, setActiveTab] = useState<'scan' | 'manual'>('scan');
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [sessionLogs, setSessionLogs] = useState<SessionLogItem[]>([]);
@@ -52,8 +54,20 @@ export const PresensiView: React.FC = () => {
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
 
-  // Play audio beep
+  // Play scan sound effect
   const playBeep = (isSuccess: boolean) => {
+    try {
+      const audio = new Audio(scanSoundUrl);
+      audio.volume = 0.8;
+      audio.currentTime = 0;
+      void audio.play().catch(() => {
+        // Ignore autoplay restrictions until user interacts with the page.
+      });
+      return;
+    } catch {
+      // Fallback to synthesized tone if audio cannot be created.
+    }
+
     try {
       const AudioCtor = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtor) return;
