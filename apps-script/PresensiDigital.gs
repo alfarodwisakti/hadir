@@ -1,115 +1,83 @@
-// ================================================================
-// BACKEND PRESENSI DIGITAL 8.G
-// Google Apps Script
+// Google Apps Script backend untuk Presensi Digital 8.G
+// 1. Buat spreadsheet baru atau gunakan spreadsheet yang sama.
+// 2. Pastikan sheet bernama: Admin, Siswa, Presensi
+// 3. Deploy sebagai Web App: "Anyone" dengan akses ke aplikasi
+// 4. Salin URL hasil deploy ke pengaturan aplikasi web di Settings
 //
-// STRUKTUR GOOGLE SPREADSHEET (harus sama persis dengan ini):
-// 1. Admin
-//    Username | Password | Nama | Role
-//
-// 2. Siswa   (nama sheet boleh "Siswa" ATAU "Data Siswa", keduanya dikenali)
-//    Nomor QR | Barcode | Nama | Kelas
-//
-// 3. Presensi
-//    Tanggal | Jam | Nomor QR | Nama | Kelas | Status | Metode | Keterangan
-// ================================================================
+// Catatan: ganti SPREADSHEET_ID di bawah dengan ID spreadsheet Anda.
 
-// GANTI dengan ID Google Spreadsheet Anda.
 const SPREADSHEET_ID = "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo";
-
+const SHEET_ADMIN = "Admin";
+const SHEET_PENGUNJUNG = "Pengunjung";
+const SHEET_SISWA = "Pengunjung";
+const LEGACY_SISWA = "Siswa";
+const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
-// Konfigurasi setiap sheet: kemungkinan nama sheet (candidate) + header baku.
-// "siswa" mendukung 2 nama sheet supaya tidak perlu rename manual di spreadsheet lama.
-const SHEET_CONFIG = {
-  admin: {
-    names: ["Admin"],
-    headers: ["Username", "Password", "Nama", "Role"]
-  },
-  siswa: {
-    names: ["Siswa", "Data Siswa"],
-    headers: ["Nomor QR", "Barcode", "Nama", "Kelas"]
-  },
-  presensi: {
-    names: ["Presensi"],
-    headers: ["Tanggal", "Jam", "Nomor QR", "Nama", "Kelas", "Status", "Metode", "Keterangan"]
-  }
+const SHEET_HEADERS = {
+  [SHEET_ADMIN]: ["username", "password", "nama", "role"],
+  [SHEET_PENGUNJUNG]: ["nomorQr", "barcode", "nama", "kelas"],
+  [SHEET_PRESENSI]: ["tanggal", "jam", "nomorQr", "nama", "kelas", "status", "metode", "keterangan"]
 };
 
-// ================================================================
-// UTILITAS
-// ================================================================
-
 function getSpreadsheet() {
-  if (!SPREADSHEET_ID || SPREADSHEET_ID === "PASTE_SPREADSHEET_ID_HERE") {
-    throw new Error("SPREADSHEET_ID belum diisi.");
-  }
-
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
-// Mencari sheet berdasarkan daftar kemungkinan nama (mis. "Siswa" atau "Data Siswa").
-// Kalau tidak ada satupun yang cocok, sheet baru dibuat dengan nama pertama di daftar.
-function getSheet(key) {
-  const config = SHEET_CONFIG[key];
-
-  if (!config) {
-    throw new Error("Konfigurasi sheet tidak dikenal: " + key);
-  }
-
+function ensureSheetStructure() {
   const ss = getSpreadsheet();
-  let sheet = null;
+  const names = [SHEET_ADMIN, SHEET_PENGUNJUNG, SHEET_PRESENSI];
 
-  for (let i = 0; i < config.names.length; i++) {
-    sheet = ss.getSheetByName(config.names[i]);
-    if (sheet) break;
-  }
+  names.forEach((name) => {
+    let sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      sheet = ss.insertSheet(name);
+    }
 
-  // Tanpa sheet siswa: tidak dibuat otomatis lagi.
-  if (!sheet && key === "siswa") {
-    return null;
-  }
+    const headers = SHEET_HEADERS[name] || [];
+    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
+    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
 
-  if (!sheet) {
-    sheet = ss.insertSheet(config.names[0]);
-  }
-
-  setupSheet(sheet, config.headers, key);
-  return sheet;
+    if (needsHeader) {
+      if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      } else {
+        const existing = sheet.getDataRange().getValues();
+        const data = existing.length ? existing : [headers];
+        if (asText(data[0][0]) !== headers[0]) {
+          sheet.insertRowBefore(1);
+          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        }
+      }
+    }
+  });
 }
 
-function setupSheet(sheet, headers, key) {
-  const current = sheet
-    .getRange(1, 1, 1, headers.length)
-    .getValues()[0];
+function getSheetByName(name) {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+  }
 
-  let perluHeader = false;
-
-  for (let i = 0; i < headers.length; i++) {
-    if (String(current[i] || "").trim() !== headers[i]) {
-      perluHeader = true;
-      break;
+  const headers = SHEET_HEADERS[name] || [];
+  if (headers.length) {
+    const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0] || [];
+    const needsHeader = headers.some((header, idx) => asText(firstRow[idx]) !== header);
+    if (needsHeader) {
+      if (sheet.getLastRow() === 0) {
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      } else {
+        const existing = sheet.getDataRange().getValues();
+        if (asText(existing[0][0]) !== headers[0]) {
+          sheet.insertRowBefore(1);
+          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        }
+      }
     }
   }
 
-  if (perluHeader) {
-    sheet
-      .getRange(1, 1, 1, headers.length)
-      .setValues([headers]);
-  }
-
-  sheet.setFrozenRows(1);
-  sheet
-    .getRange(1, 1, 1, headers.length)
-    .setFontWeight("bold");
-
-  // Format Nomor QR & Barcode sebagai teks agar angka/QR tidak berubah jadi notasi ilmiah dsb.
-  if (key === "siswa") {
-    sheet.getRange("A:B").setNumberFormat("@");
-  }
-
-  if (key === "presensi") {
-    sheet.getRange("C:C").setNumberFormat("@"); // kolom Nomor QR
-  }
+  return sheet;
 }
 
 function asText(value) {
@@ -117,19 +85,7 @@ function asText(value) {
 }
 
 function normalizeDate(value) {
-  if (
-    Object.prototype.toString.call(value) === "[object Date]" &&
-    !isNaN(value)
-  ) {
-    return Utilities.formatDate(
-      value,
-      Session.getScriptTimeZone(),
-      "yyyy-MM-dd"
-    );
-  }
-
   const raw = asText(value);
-
   if (!raw) return "";
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -150,73 +106,108 @@ function normalizeDate(value) {
 }
 
 function normalizeTime(value) {
-  if (
-    Object.prototype.toString.call(value) === "[object Date]" &&
-    !isNaN(value)
-  ) {
-    return Utilities.formatDate(
-      value,
-      Session.getScriptTimeZone(),
-      "HH:mm:ss"
-    );
-  }
-
   const raw = asText(value).replace(/\./g, ":");
-
   if (!raw) return "";
 
   if (/^\d{1,2}:\d{2}$/.test(raw)) {
     const [h, m] = raw.split(":");
-
-    return `${String(h).padStart(2, "0")}:${m}`;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
 
   if (/^\d{1,2}:\d{2}:\d{2}$/.test(raw)) {
-    const [h, m, s] = raw.split(":");
-
-    return `${String(h).padStart(2, "0")}:${m}:${s}`;
+    return raw;
   }
 
   return raw;
 }
 
-function readSheetRows(key) {
-  if (key === "siswa") {
-    const sheet = getSheet(key);
-    if (!sheet) return [];
+function readSheetRows(sheetName) {
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet && sheetName === SHEET_SISWA && ss.getSheetByName(LEGACY_SISWA)) {
+    sheet = ss.getSheetByName(LEGACY_SISWA);
   }
 
-  const sheet = getSheet(key);
-  if (!sheet) return [];
-
-  const headers = SHEET_CONFIG[key].headers;
-
-  const lastRow = sheet.getLastRow();
-
-  if (lastRow < 2) {
+  if (!sheet) {
     return [];
   }
 
-  const values = sheet
-    .getRange(1, 1, lastRow, headers.length)
-    .getValues();
+  const values = sheet.getDataRange().getValues();
 
-  return values.slice(1).map(function(row) {
-    const obj = {};
+  if (!values || values.length < 2) {
+    return [];
+  }
 
-    headers.forEach(function(header, index) {
-      obj[header.toLowerCase()] = row[index] == null
-        ? ""
-        : row[index];
+  const headers = values[0].map((header) => asText(header).toLowerCase());
+  return values.slice(1).map((row) => {
+    const rowObj = {};
+    headers.forEach((header, idx) => {
+      rowObj[header] = row[idx] ?? "";
     });
-
-    return obj;
+    return rowObj;
   });
+}
+
+function writeSheetRows(sheetName, rows) {
+  const sheet = getSheetByName(sheetName);
+  if (!rows || rows.length === 0) {
+    sheet.clear();
+    return;
+  }
+
+  const headers = Object.keys(rows[0]);
+  const values = [headers, ...rows.map((row) => headers.map((key) => row[key] ?? ""))];
+  sheet.clear();
+  sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+}
+
+function toDateNumber(dateStr) {
+  const norm = normalizeDate(dateStr);
+  if (!norm) return 0;
+  const [y, m, d] = norm.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1).getTime();
+}
+
+function getAdminUsers() {
+  return readSheetRows(SHEET_ADMIN).map((row) => ({
+    username: asText(row.username),
+    password: asText(row.password),
+    nama: asText(row.nama || row.username),
+    role: asText(row.role || "Admin")
+  }));
+}
+
+function getDaftarSiswa(kelasFilter) {
+  const rows = readSheetRows(SHEET_SISWA);
+  return rows
+    .filter((row) => {
+      if (!kelasFilter) return true;
+      return asText(row.kelas).toUpperCase() === String(kelasFilter).toUpperCase();
+    })
+    .map((row) => ({
+      nomorQr: asText(row.nomorqr || row.nomorQr),
+      barcode: asText(row.barcode || row.nomorqr || row.nomorQr),
+      nama: asText(row.nama),
+      kelas: asText(row.kelas)
+    }));
+}
+
+function getPresensiRows() {
+  return readSheetRows(SHEET_PRESENSI).map((row) => ({
+    tanggal: asText(row.tanggal),
+    jam: normalizeTime(row.jam),
+    nomorQr: asText(row.nomorqr || row.nomorQr),
+    nama: asText(row.nama),
+    kelas: asText(row.kelas),
+    status: asText(row.status),
+    metode: asText(row.metode || "Scan"),
+    keterangan: asText(row.keterangan)
+  }));
 }
 
 function parseRequestBody(payload) {
   if (!payload) return {};
-
   if (typeof payload === "string") {
     try {
       return JSON.parse(payload);
@@ -224,329 +215,148 @@ function parseRequestBody(payload) {
       return {};
     }
   }
-
   return payload;
 }
 
-function outputJson(data) {
+function setupDefaultSheets() {
+  ensureSheetStructure();
+
+  const adminSheet = getSheetByName(SHEET_ADMIN);
+  if (adminSheet.getLastRow() <= 1) {
+    adminSheet.appendRow(["admin", "admin123", "Admin Utama", "Admin"]);
+  }
+
+  const pengunjungSheet = getSheetByName(SHEET_PENGUNJUNG);
+  if (pengunjungSheet.getLastRow() <= 1) {
+    pengunjungSheet.appendRow(["2408001", "2408001", "AFIFAH SYAHIRA FITRI", "8.G"]);
+    pengunjungSheet.appendRow(["2408002", "2408002", "AFIQAH KHAIRUNNISA RIZALOV", "8.G"]);
+    pengunjungSheet.appendRow(["2408003", "2408003", "ALFARIS ADRIAN AKBAR", "8.G"]);
+  }
+}
+
+function doGet(e) {
   return ContentService
-    .createTextOutput(JSON.stringify(data))
+    .createTextOutput(JSON.stringify({
+      success: true,
+      message: "Google Apps Script backend aktif.",
+      spreadsheetId: SPREADSHEET_ID,
+      sheets: [SHEET_ADMIN, SHEET_SISWA, SHEET_PRESENSI]
+    }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ================================================================
-// ADMIN
-// ================================================================
-
-function getAdminUsers() {
-  return readSheetRows("admin").map(function(row) {
-    return {
-      username: asText(row.username),
-      password: asText(row.password),
-      nama: asText(row.nama || row.username),
-      role: asText(row.role || "Admin")
-    };
-  });
-}
-
-// ================================================================
-// SISWA
-// ================================================================
-
-function getDaftarSiswa(kelasFilter) {
-  return [];
-}
-
-// Siswa tidak lagi menggunakan sheet terpisah; scan langsung ditulis ke Presensi.
-function findSiswaByCode(code) {
-  return null;
-}
-
-// ================================================================
-// PRESENSI
-// ================================================================
-
-function getPresensiRows() {
-  return readSheetRows("presensi").map(function(row, index) {
-    return {
-      id: "REC" + (index + 2), // sintetis dari nomor baris di sheet (baris 1 = header)
-      tanggal: normalizeDate(row.tanggal),
-      jam: normalizeTime(row.jam),
-      nomorQr: asText(row["nomor qr"]),
-      nama: asText(row.nama),
-      kelas: asText(row.kelas),
-      status: asText(row.status),
-      metode: asText(row.metode || "Scan"),
-      keterangan: asText(row.keterangan)
-    };
-  });
-}
-
-// ================================================================
-// GET
-// ================================================================
-
-function doGet(e) {
-  // Hanya sheet yang benar-benar dipakai: Admin dan Presensi.
-  getSheet("admin");
-  getSheet("presensi");
-
-  return outputJson({
-    success: true,
-    message: "Backend Presensi Digital 8.G aktif.",
-    sheets: Object.keys(SHEET_CONFIG).map(function(key) {
-      return SHEET_CONFIG[key].names[0];
-    }),
-    headers: {
-      Admin: SHEET_CONFIG.admin.headers,
-      Siswa: SHEET_CONFIG.siswa.headers,
-      Presensi: SHEET_CONFIG.presensi.headers
-    }
-  });
-}
-
-// ================================================================
-// POST
-// ================================================================
-
 function doPost(e) {
-  let response = {
-    success: false,
-    message: "Aksi tidak dikenali."
-  };
+  let response = { success: false, message: "Aksi tidak dikenali." };
 
   try {
-    const rawBody =
-      e &&
-      e.postData &&
-      e.postData.contents
-        ? e.postData.contents
-        : "{}";
-
+    const rawBody = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
     const body = parseRequestBody(rawBody);
     const action = asText(body.action);
 
     if (!action) {
-      return outputJson({
-        success: false,
-        message: "Parameter action tidak ditemukan."
-      });
+      response = { success: false, message: "Parameter action tidak ditemukan." };
+      return outputJson(response);
     }
 
     switch (action) {
-
-      // ==========================================================
-      // LOGIN
-      // ==========================================================
-
       case "login": {
         const username = asText(body.username);
         const password = asText(body.password);
 
         if (!username || !password) {
-          response = {
-            success: false,
-            message: "Username dan password wajib diisi."
-          };
+          response = { success: false, message: "Username dan password wajib diisi." };
           break;
         }
 
-        const matched = getAdminUsers().find(function(user) {
-          return (
-            user.username.toLowerCase() ===
-              username.toLowerCase() &&
-            user.password === password
-          );
+        const matched = getAdminUsers().find((user) => {
+          return user.username.toLowerCase() === username.toLowerCase() && user.password === password;
         });
 
         if (!matched) {
-          response = {
-            success: false,
-            message:
-              "Username atau password tidak cocok dengan data Admin."
-          };
+          response = { success: false, message: "Username atau password tidak cocok dengan data spreadsheet." };
           break;
         }
 
-        response = {
-          success: true,
-          username: matched.username,
-          nama: matched.nama,
-          role: matched.role,
-          token: "gas_" + Utilities.getUuid()
-        };
-
+        const token = "gas_" + Utilities.getUuid();
+        response = { success: true, username: matched.username, nama: matched.nama, role: matched.role || "Admin", token };
         break;
       }
-
-      // ==========================================================
-      // GET ADMIN
-      // ==========================================================
 
       case "getAdminUsers": {
-        response = {
-          success: true,
-          data: getAdminUsers()
-        };
-
+        response = { success: true, data: getAdminUsers() };
         break;
       }
-
-      // ==========================================================
-      // GET DATA SISWA
-      // ==========================================================
 
       case "getDaftarSiswa": {
         const kelas = asText(body.kelas || "");
-
-        response = {
-          success: true,
-          data: getDaftarSiswa(kelas)
-        };
-
+        response = { success: true, data: getDaftarSiswa(kelas) };
         break;
       }
-
-      // ==========================================================
-      // TAMBAH SISWA
-      // ==========================================================
 
       case "tambahSiswa": {
         const nomorQr = asText(body.nomorQr);
-        const barcode = asText(body.barcode) || nomorQr;
+        const barcode = asText(body.barcode || body.nomorQr);
         const nama = asText(body.nama);
         const kelas = asText(body.kelas);
 
         if (!nomorQr || !nama || !kelas) {
-          response = {
-            success: false,
-            message:
-              "Nomor QR, nama, dan kelas wajib diisi."
-          };
+          response = { success: false, message: "Nomor QR, nama, dan kelas wajib diisi." };
           break;
         }
 
-        const siswa = getDaftarSiswa();
-
-        const duplicate = siswa.some(function(item) {
-          return item.nomorQr.toLowerCase() === nomorQr.toLowerCase() ||
-            item.barcode.toLowerCase() === barcode.toLowerCase();
+        const sheet = getSheetByName(SHEET_SISWA);
+        const rows = readSheetRows(SHEET_SISWA);
+        const duplicate = rows.some((row) => {
+          const existingQr = asText(row.nomorqr || row.nomorQr);
+          const existingBarcode = asText(row.barcode || row.nomorqr || row.nomorQr);
+          return existingQr === nomorQr || existingBarcode === barcode;
         });
 
         if (duplicate) {
-          response = {
-            success: false,
-            message: "Nomor QR atau barcode sudah terdaftar."
-          };
+          response = { success: false, message: "Nomor QR atau barcode sudah terdaftar." };
           break;
         }
 
-        const sheet = getSheet("siswa");
-
-        // 4 KOLOM SESUAI TABEL SISWA:
-        // Nomor QR | Barcode | Nama | Kelas
-        sheet.appendRow([
-          nomorQr,
-          barcode,
-          nama,
-          kelas
-        ]);
-
-        response = {
-          success: true,
-          message: "Data siswa berhasil ditambahkan."
-        };
-
+        sheet.appendRow([nomorQr, barcode, nama, kelas]);
+        response = { success: true };
         break;
       }
 
-      // ==========================================================
-      // EDIT SISWA
-      // ==========================================================
-
       case "editSiswa": {
-        const nomorQrLama =
-          asText(body.nomorQrLama || body.nomorQr);
-
         const nomorQr = asText(body.nomorQr);
-        const barcode = asText(body.barcode) || nomorQr;
+        const barcode = asText(body.barcode || body.nomorQr);
         const nama = asText(body.nama);
         const kelas = asText(body.kelas);
 
         if (!nomorQr || !nama || !kelas) {
-          response = {
-            success: false,
-            message:
-              "Nomor QR, nama, dan kelas wajib diisi."
-          };
+          response = { success: false, message: "Nomor QR, nama, dan kelas wajib diisi." };
           break;
         }
 
-        const sheet = getSheet("siswa");
-
-        const values =
-          sheet.getDataRange().getValues();
-
+        const sheet = getSheetByName(SHEET_SISWA);
+        const values = sheet.getDataRange().getValues();
         let found = false;
 
-        for (let i = 1; i < values.length; i++) {
-          if (
-            asText(values[i][0]) === nomorQrLama
-          ) {
-            sheet
-              .getRange(i + 1, 1, 1, 4)
-              .setValues([[
-                nomorQr,
-                barcode,
-                nama,
-                kelas
-              ]]);
-
+        for (let i = 1; i < values.length; i += 1) {
+          const currentQr = asText(values[i][0]);
+          if (currentQr === nomorQr) {
+            sheet.getRange(i + 1, 1, 1, 4).setValues([[nomorQr, barcode, nama, kelas]]);
             found = true;
             break;
           }
         }
 
-        response = found
-          ? {
-              success: true,
-              message: "Data siswa berhasil diperbarui."
-            }
-          : {
-              success: false,
-              message: "Data siswa tidak ditemukan."
-            };
-
+        response = found ? { success: true } : { success: false, message: "Data siswa tidak ditemukan." };
         break;
       }
 
-      // ==========================================================
-      // HAPUS SISWA
-      // ==========================================================
-
       case "hapusSiswa": {
         const nomorQr = asText(body.nomorQr);
-
-        if (!nomorQr) {
-          response = {
-            success: false,
-            message: "Nomor QR wajib diisi."
-          };
-          break;
-        }
-
-        const sheet = getSheet("siswa");
-
-        const values =
-          sheet.getDataRange().getValues();
-
+        const sheet = getSheetByName(SHEET_SISWA);
+        const values = sheet.getDataRange().getValues();
         let deleted = false;
 
-        for (
-          let i = values.length - 1;
-          i >= 1;
-          i--
-        ) {
+        for (let i = values.length - 1; i >= 1; i -= 1) {
           if (asText(values[i][0]) === nomorQr) {
             sheet.deleteRow(i + 1);
             deleted = true;
@@ -554,366 +364,164 @@ function doPost(e) {
           }
         }
 
-        response = deleted
-          ? {
-              success: true,
-              message: "Data siswa berhasil dihapus."
-            }
-          : {
-              success: false,
-              message: "Data siswa tidak ditemukan."
-            };
-
+        response = deleted ? { success: true } : { success: false, message: "Data siswa tidak ditemukan." };
         break;
       }
 
-      // ==========================================================
-      // SIMPAN PRESENSI
-      // ==========================================================
-
       case "simpanPresensi": {
-        const kodeDiscan = asText(body.nomorQr);
+        const nomorQr = asText(body.nomorQr);
+        const nama = asText(body.nama || "");
+        const kelas = asText(body.kelas || "8.G");
+        const tanggal = normalizeDate(body.tanggal || new Date());
+        const jam = normalizeTime(body.jam || new Date());
+        const status = asText(body.status || "Hadir");
+        const metode = asText(body.metode || "Scan");
+        const keterangan = asText(body.keterangan || "");
 
-        let nama = asText(body.nama || "Tidak Diketahui");
-        let kelas = asText(body.kelas || "Umum");
-
-        const tanggal =
-          normalizeDate(body.tanggal || new Date());
-
-        const jam =
-          normalizeTime(body.jam || new Date());
-
-        let status =
-          asText(body.status || "Hadir");
-
-        const metode =
-          asText(body.metode || "Scan");
-
-        const keterangan =
-          asText(body.keterangan || "");
-
-        if (!kodeDiscan) {
-          response = {
-            success: false,
-            message: "Nomor QR wajib diisi."
-          };
+        if (!nomorQr) {
+          response = { success: false, message: "Nomor QR wajib diisi." };
           break;
         }
 
-        const nomorQr = kodeDiscan;
+        const sheet = getSheetByName(SHEET_PRESENSI);
+        const existing = getPresensiRows().find((r) => {
+          return normalizeDate(r.tanggal) === normalizeDate(tanggal) && asText(r.nomorQr) === nomorQr;
+        });
 
-        // Otomatis Terlambat setelah 07:15.
-        if (
-          status === "Hadir" &&
-          jam &&
-          jam.substring(0, 5) > JAM_BATAS_TERLAMBAT
-        ) {
-          status = "Terlambat";
+        if (existing) {
+          response = { success: false, message: `${nama || nomorQr} sudah tercatat presensi hari ini.` };
+          break;
         }
 
-        const lock = LockService.getScriptLock();
-        lock.waitLock(15000);
-
-        try {
-          const existing =
-            getPresensiRows().find(function(row) {
-              return (
-                normalizeDate(row.tanggal) === tanggal &&
-                asText(row.nomorQr).toLowerCase() ===
-                  nomorQr.toLowerCase()
-              );
-            });
-
-          if (existing) {
-            response = {
-              success: false,
-              message:
-                `${nama} sudah tercatat presensi hari ini.`,
-              existingId: existing.id
-            };
-            break;
-          }
-
-          const sheet = getSheet("presensi");
-
-          // 8 KOLOM WAJIB SESUAI TABEL PRESENSI:
-          // Tanggal | Jam | Nomor QR | Nama | Kelas | Status | Metode | Keterangan
-          sheet.appendRow([
-            tanggal,
-            jam,
-            nomorQr,
-            nama,
-            kelas,
-            status,
-            metode,
-            keterangan
-          ]);
-        } finally {
-          lock.releaseLock();
-        }
-
-        response = {
-          success: true,
-          tanggal: tanggal,
-          jam: jam,
-          nomorQr: nomorQr,
-          nama: nama,
-          kelas: kelas,
-          status: status,
-          metode: metode,
-          keterangan: keterangan
-        };
-
+        const row = [tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan];
+        sheet.appendRow(row);
+        response = { success: true, nama: nama || nomorQr, status };
         break;
       }
-
-      // ==========================================================
-      // GET SEMUA DATA PRESENSI
-      // ==========================================================
-
-      case "getPresensi": {
-        const tanggal =
-          normalizeDate(body.tanggal || "");
-
-        const kelas =
-          asText(body.kelas || "");
-
-        let data = getPresensiRows();
-
-        if (tanggal) {
-          data = data.filter(function(row) {
-            return row.tanggal === tanggal;
-          });
-        }
-
-        if (kelas) {
-          data = data.filter(function(row) {
-            return row.kelas.toUpperCase() ===
-              kelas.toUpperCase();
-          });
-        }
-
-        response = {
-          success: true,
-          data: data
-        };
-
-        break;
-      }
-
-      // ==========================================================
-      // REKAP HARIAN
-      // ==========================================================
 
       case "getRekapHarian": {
-        const tanggal =
-          normalizeDate(body.tanggal || new Date());
-
-        const kelas =
-          asText(body.kelas || "8.G");
-
-        const records =
-          getPresensiRows().filter(function(row) {
-            return (
-              normalizeDate(row.tanggal) === tanggal &&
-              asText(row.kelas).toUpperCase() ===
-                kelas.toUpperCase()
-            );
-          });
+        const tanggal = normalizeDate(body.tanggal || new Date());
+        const kelas = asText(body.kelas || "8.G");
+        const records = getPresensiRows().filter((row) => {
+          const sameDate = normalizeDate(row.tanggal) === normalizeDate(tanggal);
+          const sameClass = asText(row.kelas).toUpperCase() === kelas.toUpperCase();
+          return sameDate && sameClass;
+        });
 
         let hadir = 0;
         let izin = 0;
         let sakit = 0;
         let alpa = 0;
-
         const log = [];
 
-        records.forEach(function(row) {
+        records.forEach((row) => {
           const status = asText(row.status);
-
-          if (
-            status === "Hadir" ||
-            status === "Terlambat"
-          ) {
-            hadir++;
-          } else if (status === "Izin") {
-            izin++;
-          } else if (status === "Sakit") {
-            sakit++;
-          } else if (status === "Alpa") {
-            alpa++;
-          }
+          if (status === "Hadir" || status === "Terlambat") hadir += 1;
+          else if (status === "Izin") izin += 1;
+          else if (status === "Sakit") sakit += 1;
+          else if (status === "Alpa") alpa += 1;
 
           log.push({
-            id: row.id,
-            tanggal: row.tanggal,
             jam: row.jam,
             nomorQr: row.nomorQr,
             nama: row.nama,
-            kelas: row.kelas,
-            status: status,
-            metode: row.metode,
-            keterangan: row.keterangan
+            status,
+            metode: row.metode || "Scan"
           });
         });
 
-        log.sort(function(a, b) {
-          return a.jam < b.jam ? 1 : -1;
-        });
+        log.sort((a, b) => (a.jam < b.jam ? 1 : -1));
 
-        response = {
-          success: true,
-          data: {
-            hadir: hadir,
-            izin: izin,
-            sakit: sakit,
-            alpa: alpa,
-            log: log.slice(0, 15)
-          }
-        };
-
+        response = { success: true, data: { hadir, izin, sakit, alpa, log: log.slice(0, 15) } };
         break;
       }
-
-      // ==========================================================
-      // REKAP PERIODE
-      // ==========================================================
 
       case "getRekapPeriode": {
-        const mulai =
-          normalizeDate(body.mulai || new Date());
-
-        const selesai =
-          normalizeDate(body.selesai || new Date());
-
-        const kelas =
-          asText(body.kelas || "8.G");
-
-        const records =
-          getPresensiRows().filter(function(row) {
-            const rowDate =
-              normalizeDate(row.tanggal);
-
-            return (
-              asText(row.kelas).toUpperCase() ===
-                kelas.toUpperCase() &&
-              rowDate >= mulai &&
-              rowDate <= selesai
-            );
-          });
+        const mulai = normalizeDate(body.mulai || new Date());
+        const selesai = normalizeDate(body.selesai || new Date());
+        const kelas = asText(body.kelas || "8.G");
+        const siswa = getDaftarSiswa(kelas);
+        const records = getPresensiRows().filter((row) => {
+          const rowDate = normalizeDate(row.tanggal);
+          const sameClass = asText(row.kelas).toUpperCase() === kelas.toUpperCase();
+          const inRange = rowDate >= mulai && rowDate <= selesai;
+          return sameClass && inRange;
+        });
 
         const rekap = {};
+        siswa.forEach((item) => {
+          rekap[item.nomorQr] = {
+            nomorQr: item.nomorQr,
+            nama: item.nama,
+            hadir: 0,
+            izin: 0,
+            sakit: 0,
+            alpa: 0,
+            persenHadir: 0
+          };
+        });
 
-        records.forEach(function(record) {
-          const key = asText(record.nomorQr) || asText(record.nama);
-          if (!rekap[key]) {
-            rekap[key] = {
-              nomorQr: asText(record.nomorQr),
-              nama: asText(record.nama),
-              kelas: asText(record.kelas),
-              hadir: 0,
-              izin: 0,
-              sakit: 0,
-              alpa: 0,
-              terlambat: 0,
-              persenHadir: 0
-            };
-          }
+        let totalHadir = 0;
+        let totalIzin = 0;
+        let totalSakit = 0;
+        let totalAlpa = 0;
 
-          const status =
-            asText(record.status);
+        records.forEach((record) => {
+          const target = rekap[record.nomorQr];
+          if (!target) return;
 
-          if (status === "Hadir") {
-            rekap[key].hadir++;
-          } else if (status === "Terlambat") {
-            rekap[key].hadir++;
-            rekap[key].terlambat++;
+          const status = asText(record.status);
+          if (status === "Hadir" || status === "Terlambat") {
+            target.hadir += 1;
+            totalHadir += 1;
           } else if (status === "Izin") {
-            rekap[key].izin++;
+            target.izin += 1;
+            totalIzin += 1;
           } else if (status === "Sakit") {
-            rekap[key].sakit++;
+            target.sakit += 1;
+            totalSakit += 1;
           } else if (status === "Alpa") {
-            rekap[key].alpa++;
+            target.alpa += 1;
+            totalAlpa += 1;
           }
         });
 
-        const perSiswa =
-          Object.values(rekap).map(function(item) {
-            const totalTercatat =
-              item.hadir +
-              item.izin +
-              item.sakit +
-              item.alpa;
-
-            item.persenHadir =
-              totalTercatat > 0
-                ? Math.round(
-                    (item.hadir /
-                      totalTercatat) *
-                    100
-                  )
-                : 100;
-
-            return item;
-          });
-
-        const totalHadir =
-          records.filter(function(row) {
-            const status = asText(row.status);
-            return status === "Hadir" || status === "Terlambat";
-          }).length;
-
-        const totalIzin =
-          records.filter(function(row) {
-            return asText(row.status) === "Izin";
-          }).length;
-
-        const totalSakit =
-          records.filter(function(row) {
-            return asText(row.status) === "Sakit";
-          }).length;
-
-        const totalAlpa =
-          records.filter(function(row) {
-            return asText(row.status) === "Alpa";
-          }).length;
-
-        perSiswa.sort(function(a, b) {
-          return a.nama.localeCompare(b.nama, "id");
+        const perSiswa = Object.values(rekap).map((item) => {
+          const totalTercatat = item.hadir + item.izin + item.sakit + item.alpa;
+          const persenHadir = totalTercatat > 0 ? Math.round((item.hadir / totalTercatat) * 100) : 100;
+          return { ...item, persenHadir };
         });
+
+        perSiswa.sort((a, b) => a.nama.localeCompare(b.nama, "id"));
 
         response = {
           success: true,
           data: {
-            totalHadir: totalHadir,
-            totalIzin: totalIzin,
-            totalSakit: totalSakit,
-            totalAlpa: totalAlpa,
-            perSiswa: perSiswa
+            totalHadir,
+            totalIzin,
+            totalSakit,
+            totalAlpa,
+            perSiswa
           }
         };
-
         break;
       }
 
-      default: {
-        response = {
-          success: false,
-          message:
-            `Aksi ${action} belum didukung pada backend.`
-        };
-      }
+      default:
+        response = { success: false, message: `Aksi ${action} belum didukung pada backend.` };
     }
-
   } catch (err) {
     response = {
       success: false,
-      message:
-        err && err.message
-          ? err.message
-          : "Terjadi kesalahan saat memproses permintaan."
+      message: err && err.message ? err.message : "Terjadi kesalahan saat memproses permintaan."
     };
   }
 
   return outputJson(response);
+}
+
+function outputJson(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
