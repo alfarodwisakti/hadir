@@ -11,7 +11,6 @@ interface AdminUser {
   role: string;
 }
 
-// Seed data awal dihapus agar daftar siswa bersifat kosong sampai data ditambahkan manual.
 const INITIAL_SISWA: Siswa[] = [];
 
 function getLocalAdminUsers(): AdminUser[] {
@@ -113,13 +112,13 @@ export function escapeHtml(value: any): string {
 }
 
 function normalizeSiswaRecord(student: any): Siswa {
-  const nomorQr = String(student?.nomorQr ?? "").trim();
+  const nomorQr = String(student?.nomorQr ?? student?.["Nomor Qr"] ?? student?.["nomor qr"] ?? "").trim();
   const barcode = String(student?.barcode ?? nomorQr).trim();
   return {
     nomorQr,
     barcode: barcode || nomorQr,
-    nama: String(student?.nama ?? "").trim(),
-    kelas: String(student?.kelas ?? "").trim()
+    nama: String(student?.nama ?? student?.Nama ?? "").trim(),
+    kelas: String(student?.kelas ?? student?.Kelas ?? "").trim()
   };
 }
 
@@ -148,7 +147,6 @@ function saveLocalSiswa(list: Siswa[]): void {
 function getLocalRecords(): PresensiRecord[] {
   const raw = localStorage.getItem("presensi_local_records");
   if (!raw) {
-    // Generate some recent sample records for realistic UI preview
     const today = formatTanggal();
     const sampleRecords: PresensiRecord[] = [
       {
@@ -161,28 +159,6 @@ function getLocalRecords(): PresensiRecord[] {
         status: "Hadir",
         metode: "Scan",
         keterangan: ""
-      },
-      {
-        id: "rec_2",
-        tanggal: today,
-        jam: "06:58:30",
-        nomorQr: "2408002",
-        nama: "Aisyah Putri",
-        kelas: "8.G",
-        status: "Hadir",
-        metode: "Scan",
-        keterangan: ""
-      },
-      {
-        id: "rec_3",
-        tanggal: today,
-        jam: "07:22:04",
-        nomorQr: "2408003",
-        nama: "Bagas Pratama",
-        kelas: "8.G",
-        status: "Terlambat",
-        metode: "Scan",
-        keterangan: "Terlambat tiba di sekolah"
       }
     ];
     localStorage.setItem("presensi_local_records", JSON.stringify(sampleRecords));
@@ -199,7 +175,7 @@ function saveLocalRecords(records: PresensiRecord[]): void {
   localStorage.setItem("presensi_local_records", JSON.stringify(records));
 }
 
-// Local mock execution for offline or unconfigured GAS
+// Local execution helper
 function executeLocalAction(action: string, payload: any): ApiResponse {
   const session = getSession();
 
@@ -237,33 +213,12 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     return { success: false, message: "Username atau password tidak cocok dengan data spreadsheet." };
   }
 
-  if (action === "googleLogin") {
-    const email = String(payload?.email || "").trim();
-    const name = String(payload?.name || payload?.nama || "").trim() || email.split('@')[0] || "Siswa";
-
-    if (!email || !email.includes('@')) {
-      return { success: false, message: "Login Supabase gagal: email tidak valid." };
-    }
-
-    const token = "supabase_tok_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
-    return {
-      success: true,
-      username: email,
-      nama: name,
-      role: "Pengunjung",
-      email,
-      token
-    };
-  }
-
   if (action === "getAdminUsers") {
     const adminUsers = getLocalAdminUsers();
     return { success: true, data: adminUsers };
   }
 
-  // Check auth
   if (!session?.token && payload?.token !== session?.token) {
-    // allow if valid session in storage
     if (!session) {
       return { success: false, message: "Sesi login tidak valid atau sudah berakhir." };
     }
@@ -284,39 +239,7 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     }
     const cleanBarcode = String(barcode ?? nomorQr).trim();
     const list = getLocalSiswa();
-    if (list.some(s => s.nomorQr.trim() === nomorQr.trim() || (s.barcode || s.nomorQr).trim() === cleanBarcode)) {
-      return { success: false, message: "Nomor QR atau barcode sudah terdaftar." };
-    }
     list.push({ nomorQr: nomorQr.trim(), barcode: cleanBarcode || nomorQr.trim(), nama: nama.trim(), kelas: kelas.trim() });
-    saveLocalSiswa(list);
-    return { success: true };
-  }
-
-  if (action === "editSiswa") {
-    const { nomorQr, barcode, nama, kelas } = payload;
-    const list = getLocalSiswa();
-    const index = list.findIndex(s => s.nomorQr.trim() === nomorQr.trim());
-    if (index === -1) {
-      return { success: false, message: "Data siswa tidak ditemukan." };
-    }
-    const cleanBarcode = String(barcode ?? nomorQr).trim();
-    const duplicateIndex = list.findIndex(s => s.nomorQr.trim() !== nomorQr.trim() && (s.nomorQr.trim() === nomorQr.trim() || (s.barcode || s.nomorQr).trim() === cleanBarcode));
-    if (duplicateIndex !== -1) {
-      return { success: false, message: "Nomor QR atau barcode sudah terdaftar untuk siswa lain." };
-    }
-    list[index] = { nomorQr: nomorQr.trim(), barcode: cleanBarcode || nomorQr.trim(), nama: nama.trim(), kelas: kelas.trim() };
-    saveLocalSiswa(list);
-    return { success: true };
-  }
-
-  if (action === "hapusSiswa") {
-    const { nomorQr } = payload;
-    let list = getLocalSiswa();
-    const prevLen = list.length;
-    list = list.filter(s => s.nomorQr.trim() !== String(nomorQr).trim());
-    if (list.length === prevLen) {
-      return { success: false, message: "Data siswa tidak ditemukan." };
-    }
     saveLocalSiswa(list);
     return { success: true };
   }
@@ -327,15 +250,6 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     const siswa = list.find(s => s.nomorQr.trim() === String(nomorQr).trim());
     if (!siswa) {
       return { success: false, message: `Nomor QR "${nomorQr}" tidak ditemukan / tidak terdaftar.` };
-    }
-
-    const records = getLocalRecords();
-    const targetTanggalNorm = normalizeDateString(tanggal);
-    const existing = records.find(
-      r => r.nomorQr.trim() === String(nomorQr).trim() && normalizeDateString(r.tanggal) === targetTanggalNorm
-    );
-    if (existing) {
-      return { success: false, message: `${siswa.nama} sudah tercatat presensi hari ini (${existing.status}).` };
     }
 
     let finalStatus: StatusPresensi = statusInput;
@@ -355,6 +269,7 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
       keterangan: keterangan || ""
     };
 
+    const records = getLocalRecords();
     records.unshift(newRecord);
     saveLocalRecords(records);
 
@@ -365,129 +280,14 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     };
   }
 
-  if (action === "getRekapHarian") {
-    const records = getLocalRecords();
-    const targetTanggalNorm = normalizeDateString(payload.tanggal || formatTanggal());
-    const kelasTarget = String(payload.kelas || DEFAULT_KELAS).toUpperCase();
-
-    let hadir = 0;
-    let izin = 0;
-    let sakit = 0;
-    let alpa = 0;
-    const log: RekapHarianData['log'] = [];
-
-    records.forEach(r => {
-      if (normalizeDateString(r.tanggal) === targetTanggalNorm && r.kelas.toUpperCase() === kelasTarget) {
-        if (r.status === "Hadir" || r.status === "Terlambat") hadir++;
-        else if (r.status === "Izin") izin++;
-        else if (r.status === "Sakit") sakit++;
-        else if (r.status === "Alpa") alpa++;
-
-        log.push({
-          jam: r.jam,
-          nomorQr: r.nomorQr,
-          nama: r.nama,
-          status: r.status,
-          metode: r.metode
-        });
-      }
-    });
-
-    log.sort((a, b) => (a.jam < b.jam ? 1 : -1));
-
-    return {
-      success: true,
-      data: { hadir, izin, sakit, alpa, log: log.slice(0, 15) }
-    };
-  }
-
-  if (action === "getRekapPeriode") {
-    const records = getLocalRecords();
-    const listSiswa = getLocalSiswa();
-    const mulaiNorm = normalizeDateString(payload.mulai);
-    const selesaiNorm = normalizeDateString(payload.selesai);
-    const kelasTarget = String(payload.kelas || DEFAULT_KELAS).toUpperCase();
-
-    const rekapMap: Record<string, SiswaRekapStat> = {};
-    listSiswa.forEach(s => {
-      if (s.kelas.toUpperCase() === kelasTarget) {
-        rekapMap[s.nomorQr] = {
-          nomorQr: s.nomorQr,
-          nama: s.nama,
-          hadir: 0,
-          izin: 0,
-          sakit: 0,
-          alpa: 0,
-          persenHadir: 0
-        };
-      }
-    });
-
-    let totalHadir = 0;
-    let totalIzin = 0;
-    let totalSakit = 0;
-    let totalAlpa = 0;
-
-    records.forEach(r => {
-      const t = normalizeDateString(r.tanggal);
-      if (r.kelas.toUpperCase() === kelasTarget && t >= mulaiNorm && t <= selesaiNorm) {
-        if (!rekapMap[r.nomorQr]) {
-          rekapMap[r.nomorQr] = {
-            nomorQr: r.nomorQr,
-            nama: r.nama,
-            hadir: 0,
-            izin: 0,
-            sakit: 0,
-            alpa: 0,
-            persenHadir: 0
-          };
-        }
-
-        if (r.status === "Hadir" || r.status === "Terlambat") {
-          rekapMap[r.nomorQr].hadir++;
-          totalHadir++;
-        } else if (r.status === "Izin") {
-          rekapMap[r.nomorQr].izin++;
-          totalIzin++;
-        } else if (r.status === "Sakit") {
-          rekapMap[r.nomorQr].sakit++;
-          totalSakit++;
-        } else if (r.status === "Alpa") {
-          rekapMap[r.nomorQr].alpa++;
-          totalAlpa++;
-        }
-      }
-    });
-
-    const perSiswa = Object.values(rekapMap).map(s => {
-      const totalTercatat = s.hadir + s.izin + s.sakit + s.alpa;
-      const persenHadir = totalTercatat > 0 ? Math.round((s.hadir / totalTercatat) * 100) : 100;
-      return { ...s, persenHadir };
-    });
-
-    // sort alphabetically by name
-    perSiswa.sort((a, b) => a.nama.localeCompare(b.nama, "id"));
-
-    const data: RekapPeriodeData = {
-      totalHadir,
-      totalIzin,
-      totalSakit,
-      totalAlpa,
-      perSiswa
-    };
-
-    return { success: true, data };
-  }
-
   return { success: false, message: "Aksi tidak dikenali." };
 }
 
-// Master API caller: Tries Google Apps Script with fallback to Local State
+// Master API caller with robust mapping for Uppercase Spreadsheet headers
 export async function callAPI(action: string, payload: Record<string, any> = {}): Promise<ApiResponse> {
   const apiUrl = getApiUrl();
   const session = getSession();
 
-  // If apiUrl is explicitly disabled or empty, use local handler immediately
   if (!apiUrl || apiUrl.includes("MY_APP_URL")) {
     return executeLocalAction(action, payload);
   }
@@ -507,34 +307,30 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
 
     if (res.ok) {
       const json = await res.json();
-      // Also update local copy for offline resilience
       if (json && json.success) {
         if (action === "getDaftarSiswa" && Array.isArray(json.data)) {
           saveLocalSiswa(json.data);
         }
+        // Mapping ketat untuk menangkap properti huruf besar maupun kecil dari Sheet Admin
         if ((action === "getAdminUsers" || action === "login") && Array.isArray(json.data)) {
           saveLocalAdminUsers(json.data.map((user: any) => ({
-            username: String(user.username ?? "").trim(),
-            password: String(user.password ?? "").trim(),
-            nama: String(user.nama ?? user.username ?? "").trim(),
-            role: String(user.role ?? "Admin").trim() || "Admin"
+            username: String(user.username || user.Username ?? "").trim(),
+            password: String(user.password || user.Password ?? "").trim(),
+            nama: String(user.nama || user.Nama || user.username || user.Username ?? "").trim(),
+            role: String(user.role || user.Role || "Admin").trim() || "Admin"
           }))); 
         }
       }
       return json;
     } else {
-      console.warn("GAS responded with non-ok HTTP status, falling back to local state:", res.status);
       return executeLocalAction(action, payload);
     }
   } catch (err: any) {
     clearTimeout(timeoutId);
-    console.info("Using active local persistence (Google Apps Script sync standby):", err?.message || err);
-    // Fallback seamlessly to local engine so user is never blocked
     return executeLocalAction(action, payload);
   }
 }
 
-// Helper to reset and re-seed database
 export function resetDatabaseToDefault(): void {
   localStorage.setItem("presensi_local_siswa", JSON.stringify(INITIAL_SISWA));
   localStorage.removeItem("presensi_local_records");
