@@ -83,7 +83,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     try {
       const appUrl = (import.meta.env.VITE_APP_URL || window.location.origin || '').replace(/\/$/, '');
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
         provider: 'google',
         options: {
           redirectTo: appUrl,
