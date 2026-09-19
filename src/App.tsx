@@ -24,9 +24,13 @@ export default function App() {
 
   useEffect(() => {
     const savedUser = getSession();
-    if (savedUser && savedUser.provider === 'supabase' && supabase) {
+    // A local admin session is independent of Supabase.  Previously it was
+    // discarded during app startup (and also when Supabase had no session),
+    // which made a successfully logged-in admin return to the login screen
+    // after a refresh.
+    if (savedUser && (savedUser.provider !== 'supabase' || supabase)) {
       setUser(savedUser);
-    } else if (savedUser) {
+    } else if (savedUser?.provider === 'supabase') {
       clearSession();
       setUser(null);
     }
@@ -34,8 +38,12 @@ export default function App() {
     if (supabase) {
       const hydrateSupabaseUser = (session: any) => {
         if (!session?.user) {
-          clearSession();
-          setUser(null);
+          // Do not let an absent/expired Google session clear an admin
+          // session stored by the username/password login flow.
+          if (getSession()?.provider === 'supabase') {
+            clearSession();
+            setUser(null);
+          }
           return;
         }
 
