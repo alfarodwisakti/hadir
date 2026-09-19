@@ -7,7 +7,7 @@ const JAM_BATAS_TERLAMBAT = "07:15";
 
 function getSpreadsheet() {
   if (!SPREADSHEET_ID) {
-    throw new Error("SPREADSHEET_ID belum diisi.");
+    throw new Error("1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo");
   }
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
@@ -49,7 +49,8 @@ function readSheetRows(sheetName) {
   const values = sheet.getDataRange().getValues();
   if (!values || values.length < 2) return [];
 
-  const headers = values[0].map((header) => asText(header).toLowerCase());
+  // Mengubah header menjadi huruf kecil dan menghilangkan spasi agar aman dari variasi penulisan kapital
+  const headers = values[0].map((header) => asText(header).toLowerCase().replace(/\s+/g, ""));
   return values.slice(1).map((row) => {
     const rowObj = {};
     headers.forEach((header, idx) => {
@@ -70,7 +71,7 @@ function getAdminUsers() {
 
 function getDaftarSiswa(kelasFilter) {
   const rows = readSheetRows(SHEET_DATA_SISWA).map((row) => ({
-    nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr || row["no qr"] || row.noqr),
+    nomorQr: asText(row["nomorqr"] || row["noqr"] || row["nomorqr"]),
     nama: asText(row.nama),
     kelas: asText(row.kelas)
   }));
@@ -84,7 +85,7 @@ function getPresensiRows() {
     id: asText(row.id),
     tanggal: asText(row.tanggal),
     jam: normalizeTime(row.jam),
-    nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr),
+    nomorQr: asText(row["nomorqr"] || row["noqr"]),
     nama: asText(row.nama),
     kelas: asText(row.kelas),
     status: asText(row.status),
@@ -254,11 +255,7 @@ function doPost(e) {
         const sheet = getSpreadsheet().getSheetByName(SHEET_PRESENSI);
         sheet.appendRow([id, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan]);
         response = { success: true, message: "Presensi disimpan." };
-        break;
       }
-
-      default:
-        response = { success: false, message: `Aksi ${action} tidak dikenal.` };
     }
   } catch (err) {
     response = { success: false, message: err.message };
