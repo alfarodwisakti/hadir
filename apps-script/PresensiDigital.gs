@@ -6,7 +6,7 @@ const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
 function getSpreadsheet() {
-  if (!SPREADSHEET_ID || SPREADSHEET_ID === "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo") {
+  if (!SPREADSHEET_ID) {
     throw new Error("SPREADSHEET_ID belum diisi.");
   }
   return SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -70,7 +70,6 @@ function getAdminUsers() {
 
 function getDaftarSiswa(kelasFilter) {
   const rows = readSheetRows(SHEET_DATA_SISWA).map((row) => ({
-    // Mendukung berbagai variasi penamaan header pada sheet Data Siswa
     nomorQr: asText(row["nomor qr"] || row.nomorqr || row.nomorQr || row["no qr"] || row.noqr),
     nama: asText(row.nama),
     kelas: asText(row.kelas)
@@ -234,7 +233,6 @@ function doPost(e) {
           break;
         }
 
-        // Pencarian data siswa secara fleksibel (mengabaikan huruf besar/kecil & spasi berlebih)
         if (!nama || !kelas || nama === "Tidak Diketahui") {
           const daftarSiswa = getDaftarSiswa();
           const cleanTargetQr = nomorQr.toLowerCase();
@@ -254,7 +252,6 @@ function doPost(e) {
         }
 
         const sheet = getSpreadsheet().getSheetByName(SHEET_PRESENSI);
-        // Urutan kolom: ID, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan
         sheet.appendRow([id, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan]);
         response = { success: true, message: "Presensi disimpan." };
         break;
