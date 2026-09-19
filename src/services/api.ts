@@ -311,13 +311,12 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
         if (action === "getDaftarSiswa" && Array.isArray(json.data)) {
           saveLocalSiswa(json.data);
         }
-        // Mapping ketat untuk menangkap properti huruf besar maupun kecil dari Sheet Admin
         if ((action === "getAdminUsers" || action === "login") && Array.isArray(json.data)) {
           saveLocalAdminUsers(json.data.map((user: any) => ({
-            username: String(user.username || user.Username ?? "").trim(),
-            password: String(user.password || user.Password ?? "").trim(),
-            nama: String(user.nama || user.Nama || user.username || user.Username ?? "").trim(),
-            role: String(user.role || user.Role || "Admin").trim() || "Admin"
+            username: String((user.username || user.Username) ?? "").trim(),
+            password: String((user.password || user.Password) ?? "").trim(),
+            nama: String((user.nama || user.Nama || user.username || user.Username) ?? "").trim(),
+            role: String((user.role || user.Role) ?? "Admin").trim() || "Admin"
           }))); 
         }
       }
