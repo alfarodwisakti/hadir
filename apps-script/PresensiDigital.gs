@@ -219,10 +219,8 @@ function doPost(e) {
         if (!id) {
           id = "P-" + Math.random().toString(36).substring(2, 9).toUpperCase();
         }
-        
+
         const nomorQr = asText(body.nomorQr);
-        let nama = asText(body.nama);
-        let kelas = asText(body.kelas);
         const tanggal = normalizeDate(body.tanggal || new Date());
         const jam = normalizeTime(body.jam || new Date());
         let status = asText(body.status || "Hadir");
@@ -234,19 +232,19 @@ function doPost(e) {
           break;
         }
 
-        if (!nama || !kelas || nama === "Tidak Diketahui") {
-          const daftarSiswa = getDaftarSiswa();
-          const cleanTargetQr = nomorQr.toLowerCase();
-          const matchedSiswa = daftarSiswa.find((s) => s.nomorQr.toLowerCase() === cleanTargetQr);
-          
-          if (matchedSiswa) {
-            nama = nama && nama !== "Tidak Diketahui" ? nama : matchedSiswa.nama;
-            kelas = kelas && kelas !== "8.G" ? kelas : matchedSiswa.kelas;
-          }
+        // Wajib cocok dengan data di sheet "Data Siswa". Barcode/QR yang tidak
+        // terdaftar akan DITOLAK dan tidak pernah dicatat sebagai kehadiran.
+        const daftarSiswa = getDaftarSiswa();
+        const cleanTargetQr = nomorQr.toLowerCase();
+        const matchedSiswa = daftarSiswa.find((s) => s.nomorQr.toLowerCase() === cleanTargetQr);
+
+        if (!matchedSiswa) {
+          response = { success: false, message: `Nomor QR "${nomorQr}" tidak terdaftar di Data Siswa.` };
+          break;
         }
 
-        nama = nama || "Tidak Diketahui";
-        kelas = kelas || "8.G";
+        const nama = matchedSiswa.nama || "Tidak Diketahui";
+        const kelas = matchedSiswa.kelas || "8.G";
 
         if (status === "Hadir" && jam && jam.substring(0, 5) > JAM_BATAS_TERLAMBAT) {
           status = "Terlambat";
@@ -254,7 +252,10 @@ function doPost(e) {
 
         const sheet = getSpreadsheet().getSheetByName(SHEET_PRESENSI);
         sheet.appendRow([id, tanggal, jam, nomorQr, nama, kelas, status, metode, keterangan]);
-        response = { success: true, message: "Presensi disimpan." };
+        // Kirim balik nama/kelas/status asli agar frontend tidak menampilkan
+        // fallback generik "Siswa".
+        response = { success: true, message: "Presensi disimpan.", nama: nama, kelas: kelas, status: status };
+        break;
       }
     }
   } catch (err) {
