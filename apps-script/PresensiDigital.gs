@@ -158,6 +158,77 @@ function doPost(e) {
         response = { success: true, data: getDaftarSiswa(asText(body.kelas || "")) };
         break;
 
+      case "getRekapHarian": {
+        const tanggal = normalizeDate(body.tanggal || new Date());
+        const kelasFilter = asText(body.kelas || "");
+
+        const rows = getPresensiRows().filter((r) => {
+          const cocokTanggal = normalizeDate(r.tanggal) === tanggal;
+          const cocokKelas = !kelasFilter || r.kelas.toUpperCase() === kelasFilter.toUpperCase();
+          return cocokTanggal && cocokKelas;
+        });
+
+        let hadir = 0, izin = 0, sakit = 0, alpa = 0;
+        rows.forEach((r) => {
+          if (r.status === "Hadir" || r.status === "Terlambat") hadir++;
+          else if (r.status === "Izin") izin++;
+          else if (r.status === "Sakit") sakit++;
+          else if (r.status === "Alpa") alpa++;
+        });
+
+        const log = rows
+          .map((r) => ({ jam: r.jam, nomorQr: r.nomorQr, nama: r.nama, status: r.status, metode: r.metode }))
+          .sort((a, b) => (a.jam < b.jam ? 1 : a.jam > b.jam ? -1 : 0));
+
+        response = { success: true, data: { hadir, izin, sakit, alpa, log } };
+        break;
+      }
+
+      case "getRekapPeriode": {
+        const mulai = normalizeDate(body.mulai);
+        const selesai = normalizeDate(body.selesai || body.mulai);
+        const kelasFilter = asText(body.kelas || "");
+
+        const rows = getPresensiRows().filter((r) => {
+          const tgl = normalizeDate(r.tanggal);
+          const dalamRentang = (!mulai || tgl >= mulai) && (!selesai || tgl <= selesai);
+          const cocokKelas = !kelasFilter || r.kelas.toUpperCase() === kelasFilter.toUpperCase();
+          return dalamRentang && cocokKelas;
+        });
+
+        const daftarSiswa = getDaftarSiswa(kelasFilter);
+        const perSiswaMap = {};
+        daftarSiswa.forEach((s) => {
+          perSiswaMap[s.nomorQr] = { nomorQr: s.nomorQr, nama: s.nama, hadir: 0, izin: 0, sakit: 0, alpa: 0 };
+        });
+
+        let totalHadir = 0, totalIzin = 0, totalSakit = 0, totalAlpa = 0;
+
+        rows.forEach((r) => {
+          if (!perSiswaMap[r.nomorQr]) {
+            perSiswaMap[r.nomorQr] = { nomorQr: r.nomorQr, nama: r.nama, hadir: 0, izin: 0, sakit: 0, alpa: 0 };
+          }
+          const target = perSiswaMap[r.nomorQr];
+          if (r.status === "Hadir" || r.status === "Terlambat") { target.hadir++; totalHadir++; }
+          else if (r.status === "Izin") { target.izin++; totalIzin++; }
+          else if (r.status === "Sakit") { target.sakit++; totalSakit++; }
+          else if (r.status === "Alpa") { target.alpa++; totalAlpa++; }
+        });
+
+        const perSiswa = Object.keys(perSiswaMap).map((qr) => {
+          const s = perSiswaMap[qr];
+          const totalTercatat = s.hadir + s.izin + s.sakit + s.alpa;
+          const persenHadir = totalTercatat > 0 ? Math.round((s.hadir / totalTercatat) * 100) : 0;
+          return Object.assign({}, s, { persenHadir: persenHadir });
+        });
+
+        response = {
+          success: true,
+          data: { totalHadir: totalHadir, totalIzin: totalIzin, totalSakit: totalSakit, totalAlpa: totalAlpa, perSiswa: perSiswa }
+        };
+        break;
+      }
+
       case "tambahSiswa": {
         const nomorQr = asText(body.nomorQr);
         const nama = asText(body.nama);
