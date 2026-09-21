@@ -7,7 +7,7 @@ export interface Siswa {
 }
 
 export type StatusPresensi = 'Hadir' | 'Terlambat' | 'Izin' | 'Sakit' | 'Alpa';
-export type MetodePresensi = 'Scan' | 'Manual' | 'Otomatis';
+export type MetodePresensi = 'Scan' | 'Manual' | 'Otomatis' | 'Observasi';
 
 export interface PresensiRecord {
   id: string;
@@ -19,6 +19,8 @@ export interface PresensiRecord {
   status: StatusPresensi;
   metode: MetodePresensi;
   keterangan: string;
+  mapel?: string;
+  guru?: string;
 }
 
 export interface UserSession {
@@ -73,4 +75,6 @@ export interface ApiResponse<T = any> {
   token?: string;
   email?: string;
   provider?: 'local' | 'supabase';
+  saved?: number;
+  skipped?: string[];
 }
