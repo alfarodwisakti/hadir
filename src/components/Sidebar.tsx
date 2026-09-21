@@ -9,11 +9,12 @@ import {
   GraduationCap,
   Menu,
   X,
-  BellRing
+  BellRing,
+  ClipboardCheck
 } from 'lucide-react';
 import { UserSession } from '../types';
 
-export type NavTab = 'dashboard' | 'presensi' | 'rekap' | 'siswa' | 'random-call' | 'settings';
+export type NavTab = 'dashboard' | 'presensi' | 'presensi-mapel' | 'rekap' | 'siswa' | 'random-call' | 'settings';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -35,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'dashboard' as NavTab, label: 'Dashboard', icon: LayoutDashboard, desc: 'Ringkasan harian' },
     { id: 'presensi' as NavTab, label: 'Presensi', icon: QrCode, desc: 'Scan QR & manual' },
+    { id: 'presensi-mapel' as NavTab, label: 'Presensi Mapel', icon: ClipboardCheck, desc: 'Observasi guru per mapel' },
     { id: 'rekap' as NavTab, label: 'Rekap & Laporan', icon: BarChart3, desc: 'Grafik & export Excel' },
     { id: 'siswa' as NavTab, label: 'Data Siswa', icon: Users, desc: 'Kelola & cetak kartu' },
     { id: 'random-call' as NavTab, label: 'Panggil Acak', icon: BellRing, desc: 'Animasi & suara' },
