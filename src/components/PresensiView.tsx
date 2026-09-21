@@ -506,7 +506,7 @@ export const PresensiView: React.FC = () => {
                       }
                     }}
                     onFocus={() => setShowAutocomplete(true)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 pl-10 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+                    className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-4 py-2.5 pl-10 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
                     required
                   />
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -591,7 +591,7 @@ export const PresensiView: React.FC = () => {
                   value={manualKeterangan}
                   onChange={(e) => setManualKeterangan(e.target.value)}
                   placeholder="Contoh: Sakit flu demam, ada acara keluarga, dsb."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+                  className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
                 />
               </div>
 

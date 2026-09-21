@@ -136,7 +136,7 @@ function doPost(e) {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://script.google.com/macros/s/.../exec"
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+              className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
               required
             />
             <p className="text-[11px] text-slate-400 mt-1">

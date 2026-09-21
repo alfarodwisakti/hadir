@@ -163,7 +163,7 @@ export const PresensiMapelView: React.FC<PresensiMapelViewProps> = ({ guruNama }
               setMapelPilihan(e.target.value);
               setConfirmChecked(false);
             }}
-            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+            className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
           >
             {DAFTAR_MAPEL.map((m) => (
               <option key={m} value={m}>{m}</option>
@@ -179,7 +179,7 @@ export const PresensiMapelView: React.FC<PresensiMapelViewProps> = ({ guruNama }
                 setConfirmChecked(false);
               }}
               placeholder="Ketik nama mata pelajaran..."
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
+              className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-hidden"
             />
           )}
         </div>
@@ -257,7 +257,7 @@ export const PresensiMapelView: React.FC<PresensiMapelViewProps> = ({ guruNama }
                         value={r.keterangan}
                         onChange={(e) => setKeteranganRow(r.nomorQr, e.target.value)}
                         placeholder={r.status === 'Hadir' ? '-' : 'Contoh: demam, ada acara keluarga...'}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-hidden"
+                        className="w-full bg-slate-50 text-slate-800 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-blue-500 outline-hidden"
                       />
                     </td>
                   </tr>

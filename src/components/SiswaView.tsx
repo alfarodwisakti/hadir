@@ -304,7 +304,7 @@ export const SiswaView: React.FC = () => {
                 value={nomorQr}
                 disabled={isEditing}
                 onChange={(e) => setNomorQr(e.target.value)}
-                className="w-full bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+                className="w-full bg-slate-50 disabled:bg-slate-100 text-slate-800 disabled:text-slate-400 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
                 required
               />
               <span className="text-[11px] text-slate-400 mt-1 block">Kode identitas utama</span>
@@ -319,7 +319,7 @@ export const SiswaView: React.FC = () => {
                 placeholder="Nama lengkap siswa"
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+                className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
                 required
               />
               <span className="text-[11px] text-slate-400 mt-1 block">Sesuai data rapor sekolah</span>
@@ -378,7 +378,7 @@ export const SiswaView: React.FC = () => {
               placeholder="Cari nama atau nomor QR..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+              className="w-full bg-white text-slate-800 border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
           </div>
