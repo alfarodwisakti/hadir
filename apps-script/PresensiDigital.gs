@@ -17,6 +17,14 @@ function asText(value) {
 }
 
 function normalizeDate(value) {
+  // Sel tanggal yang ditulis lewat appendRow sering otomatis dikonversi Google
+  // Sheets menjadi tipe Date asli saat dibaca kembali (bukan lagi teks). Kalau
+  // ini tidak ditangani, perbandingan tanggal di getRekapHarian/getRekapPeriode
+  // akan selalu gagal cocok dan rekap tampil 0 terus meski datanya ada.
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
+  }
+
   const raw = asText(value);
   if (!raw) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
@@ -32,6 +40,12 @@ function normalizeDate(value) {
 }
 
 function normalizeTime(value) {
+  // Sama seperti tanggal, kolom Jam juga bisa terbaca sebagai objek Date/Time
+  // asli, bukan teks "HH:mm:ss".
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || "GMT+7", "HH:mm:ss");
+  }
+
   const raw = asText(value).replace(/\./g, ":");
   if (!raw) return "";
   if (/^\d{1,2}:\d{2}$/.test(raw)) {
