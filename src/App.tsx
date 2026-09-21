@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { PresensiView } from './components/PresensiView';
+import { PresensiMapelView } from './components/PresensiMapelView';
 import { RekapView } from './components/RekapView';
 import { SiswaView } from './components/SiswaView';
 import { RandomCallView } from './components/RandomCallView';
@@ -122,6 +123,7 @@ export default function App() {
 
             {currentTab === 'dashboard' && <DashboardView onNavigate={setCurrentTab} userRole={user?.role} />}
             {currentTab === 'presensi' && <PresensiView />}
+            {currentTab === 'presensi-mapel' && <PresensiMapelView guruNama={user?.nama || user?.username || 'Guru'} />}
             {currentTab === 'rekap' && <RekapView userRole={user?.role} />}
             {currentTab === 'siswa' && <SiswaView />}
             {currentTab === 'random-call' && <RandomCallView />}
