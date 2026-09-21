@@ -90,7 +90,9 @@ function getPresensiRows() {
     kelas: asText(row.kelas),
     status: asText(row.status),
     metode: asText(row.metode || "Scan"),
-    keterangan: asText(row.keterangan)
+    keterangan: asText(row.keterangan),
+    mapel: asText(row.mapel),
+    guru: asText(row.guru)
   }));
 }
 
@@ -255,6 +257,74 @@ function doPost(e) {
         // Kirim balik nama/kelas/status asli agar frontend tidak menampilkan
         // fallback generik "Siswa".
         response = { success: true, message: "Presensi disimpan.", nama: nama, kelas: kelas, status: status };
+        break;
+      }
+
+      case "simpanPresensiMapel": {
+        // Presensi berbasis observasi guru per mata pelajaran. Satu kali submit
+        // menyimpan seluruh baris siswa sekaligus (1 kali panggilan server),
+        // dan dianggap "divalidasi" karena guru sudah mencentang konfirmasi
+        // di aplikasi sebelum mengirim.
+        const mapel = asText(body.mapel);
+        const guru = asText(body.guru) || "Guru";
+        const tanggal = normalizeDate(body.tanggal || new Date());
+        const jam = normalizeTime(body.jam || new Date());
+        const kelasDefault = asText(body.kelas) || "8.G";
+        const records = Array.isArray(body.records) ? body.records : [];
+
+        if (!mapel) {
+          response = { success: false, message: "Mata pelajaran wajib dipilih." };
+          break;
+        }
+        if (records.length === 0) {
+          response = { success: false, message: "Tidak ada data siswa untuk disimpan." };
+          break;
+        }
+
+        const daftarSiswa = getDaftarSiswa();
+        const siswaMap = {};
+        daftarSiswa.forEach((s) => { siswaMap[s.nomorQr.toLowerCase()] = s; });
+
+        const rowsToInsert = [];
+        const dilewati = [];
+
+        records.forEach((rec, idx) => {
+          const nomorQr = asText(rec.nomorQr);
+          if (!nomorQr) return;
+
+          const matched = siswaMap[nomorQr.toLowerCase()];
+          if (!matched) {
+            dilewati.push(nomorQr);
+            return;
+          }
+
+          const status = asText(rec.status || "Hadir");
+          const keterangan = asText(rec.keterangan || "");
+          const id = "PM-" + Date.now() + "-" + idx;
+
+          rowsToInsert.push([
+            id, tanggal, jam, nomorQr, matched.nama, matched.kelas || kelasDefault,
+            status, "Observasi", keterangan, mapel, guru
+          ]);
+        });
+
+        if (rowsToInsert.length > 0) {
+          const sheet = getSpreadsheet().getSheetByName(SHEET_PRESENSI);
+          sheet.getRange(sheet.getLastRow() + 1, 1, rowsToInsert.length, rowsToInsert[0].length)
+            .setValues(rowsToInsert);
+        }
+
+        let message = `Presensi mapel "${mapel}" tersimpan untuk ${rowsToInsert.length} siswa.`;
+        if (dilewati.length > 0) {
+          message += ` (${dilewati.length} nomor QR tidak dikenali dilewati: ${dilewati.join(", ")})`;
+        }
+
+        response = {
+          success: true,
+          message: message,
+          saved: rowsToInsert.length,
+          skipped: dilewati
+        };
         break;
       }
     }
