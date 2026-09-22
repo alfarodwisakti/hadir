@@ -155,11 +155,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
                   Class Digital
                 </div>
-                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">SMP NEGERI 18 PADANG</h1>
+                <h1 className="mt-3 text-lg sm:text-xl font-bold text-slate-300 tracking-wide">SMP NEGERI 18 PADANG</h1>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">Presensi Digital Kelas 8G</h2>
+                <p className="text-sm text-slate-400 font-medium mt-1">Tahun Ajaran 2026/2027</p>
               </div>
-              <p className="text-sm text-slate-300 font-medium">
-                Presensi Digital Kelas 8.G
-              </p>
             </div>
 
             {errorMsg && (
@@ -250,7 +249,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div className="text-center mt-6 text-xs text-slate-400 font-medium tracking-[0.22em] uppercase">
-            Presensi Digital Kelas 8.G • SMP Negeri
+            Tahun Ajaran 2026/2027 • SMP Negeri 18 Padang
           </div>
         </div>
       </div>
