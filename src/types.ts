@@ -78,4 +78,5 @@ export interface ApiResponse<T = any> {
   saved?: number;
   skipped?: string[];
   duplicate?: boolean;
+  offline?: boolean;
 }

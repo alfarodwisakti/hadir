@@ -77,7 +77,7 @@ export const RandomCallView: React.FC = () => {
       .trim();
   };
 
-  const playCallSound = () => {
+  const playCallSound = (student: Siswa | null) => {
     if (!soundEnabled) return;
 
     const tones = [660, 880, 990, 1180];
@@ -86,8 +86,8 @@ export const RandomCallView: React.FC = () => {
     });
 
     const speech = window.speechSynthesis;
-    if (selected && speech && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(normalizeForSpeech(selected.nama));
+    if (student && speech && 'speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(normalizeForSpeech(student.nama));
       utterance.lang = 'id-ID';
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
@@ -119,7 +119,11 @@ export const RandomCallView: React.FC = () => {
       setSelected(nextSelected);
       previousSelectedRef.current = nextSelected.nomorQr;
       setIsCalling(false);
-      playCallSound();
+      // Kirim langsung siswa yang baru terpilih, jangan andalkan state
+      // `selected` di closure ini — closure-nya masih membawa nilai LAMA
+      // (dari render sebelum klik ini), makanya suara sebelumnya selalu
+      // telat 1 putaran / hening di klik pertama.
+      playCallSound(nextSelected);
     }, 1200);
   };
 

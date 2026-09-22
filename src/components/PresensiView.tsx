@@ -15,7 +15,11 @@ import {
   Maximize2,
   Minimize2,
   Monitor,
-  XCircle
+  XCircle,
+  Flashlight,
+  FlashlightOff,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { callAPI, formatTanggal, formatJam, DEFAULT_KELAS } from '../services/api';
@@ -56,6 +60,11 @@ export const PresensiView: React.FC = () => {
   const [isFullscreenScan, setIsFullscreenScan] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<ScanFeedback | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [zoomSupported, setZoomSupported] = useState(false);
+  const [zoomCaps, setZoomCaps] = useState<{ min: number; max: number; step: number } | null>(null);
+  const [zoomValue, setZoomValue] = useState(1);
 
   // Manual Tab state
   const [manualQuery, setManualQuery] = useState('');
@@ -124,7 +133,7 @@ export const PresensiView: React.FC = () => {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'id-ID';
-      utterance.rate = 1;
+      utterance.rate = 1.25;
       utterance.pitch = 1.1;
       utterance.volume = 1;
       window.speechSynthesis.speak(utterance);
@@ -133,7 +142,7 @@ export const PresensiView: React.FC = () => {
     }
   };
 
-  const triggerScanFeedback = (feedback: ScanFeedback, durationMs: number = 2000) => {
+  const triggerScanFeedback = (feedback: ScanFeedback, durationMs: number = 900) => {
     if (feedbackTimeoutRef.current) {
       clearTimeout(feedbackTimeoutRef.current);
     }
@@ -141,6 +150,62 @@ export const PresensiView: React.FC = () => {
     feedbackTimeoutRef.current = setTimeout(() => {
       setScanFeedback(null);
     }, durationMs);
+  };
+
+  // Cek dukungan senter (torch) & zoom pada kamera yang sedang aktif.
+  const refreshTrackCapabilities = () => {
+    try {
+      const caps: any = html5QrCodeRef.current?.getRunningTrackCapabilities?.();
+      if (!caps) {
+        setTorchSupported(false);
+        setZoomSupported(false);
+        return;
+      }
+      setTorchSupported(!!caps.torch);
+      if (caps.zoom && typeof caps.zoom === 'object') {
+        const min = caps.zoom.min ?? 1;
+        const max = caps.zoom.max ?? 1;
+        const step = caps.zoom.step || 0.1;
+        if (max > min) {
+          setZoomSupported(true);
+          setZoomCaps({ min, max, step });
+          const settings: any = html5QrCodeRef.current?.getRunningTrackSettings?.();
+          setZoomValue(settings?.zoom ?? min);
+        } else {
+          setZoomSupported(false);
+          setZoomCaps(null);
+        }
+      } else {
+        setZoomSupported(false);
+        setZoomCaps(null);
+      }
+    } catch {
+      setTorchSupported(false);
+      setZoomSupported(false);
+    }
+  };
+
+  const toggleTorch = async () => {
+    if (!html5QrCodeRef.current || !torchSupported) return;
+    const next = !torchOn;
+    try {
+      await html5QrCodeRef.current.applyVideoConstraints({ advanced: [{ torch: next }] } as any);
+      setTorchOn(next);
+    } catch (err) {
+      console.warn('Senter tidak didukung perangkat/browser ini:', err);
+      setTorchSupported(false);
+    }
+  };
+
+  const handleZoomChange = async (value: number) => {
+    if (!html5QrCodeRef.current || !zoomSupported || !zoomCaps) return;
+    const clamped = Math.min(zoomCaps.max, Math.max(zoomCaps.min, value));
+    try {
+      await html5QrCodeRef.current.applyVideoConstraints({ advanced: [{ zoom: clamped }] } as any);
+      setZoomValue(clamped);
+    } catch (err) {
+      console.warn('Zoom gagal diterapkan:', err);
+    }
   };
 
   // Load students for cache & manual autocomplete
@@ -279,14 +344,14 @@ export const PresensiView: React.FC = () => {
             triggerScanFeedback({
               type: 'duplicate',
               nama: result.nama,
-              message: result.message || `${result.nama || 'Siswa'} sudah tercatat presensi hari ini.`
+              message: 'Sudah presensi hari ini'
             });
           } else if (result.success) {
             playBeep(true);
             triggerScanFeedback({
               type: 'success',
               nama: result.nama,
-              message: `Status: ${result.status || 'Hadir'}`
+              message: result.status || 'Hadir'
             });
           } else {
             playBeep(false);
@@ -296,7 +361,7 @@ export const PresensiView: React.FC = () => {
             });
           }
 
-          const cooldownDuration = isFullscreenScan ? 2200 : 1200;
+          const cooldownDuration = isFullscreenScan ? 1100 : 900;
           setTimeout(() => {
             isCooldownRef.current = false;
             setScannerStatus('Scanner aktif. Arahkan barcode/QR ke kamera.');
@@ -309,6 +374,7 @@ export const PresensiView: React.FC = () => {
 
       setIsScanning(true);
       setScannerStatus('Scanner aktif. Arahkan barcode atau QR Code ke dalam kotak.');
+      refreshTrackCapabilities();
     } catch (err: any) {
       console.error("Camera start error:", err);
       setIsScanning(false);
@@ -335,6 +401,10 @@ export const PresensiView: React.FC = () => {
         setScannerStatus('Scanner dihentikan.');
         setIsFullscreenScan(false);
         setScanFeedback(null);
+        setTorchOn(false);
+        setTorchSupported(false);
+        setZoomSupported(false);
+        setZoomCaps(null);
       }
     }
   };
@@ -538,6 +608,18 @@ export const PresensiView: React.FC = () => {
 
                 <div id="reader" className={isFullscreenScan ? 'w-full h-full max-w-none' : 'w-full h-full max-w-[420px]'} />
 
+                {/* Bingkai/border patokan target scan — hanya dekoratif, tidak menghalangi kamera */}
+                {isFullscreenScan && isScanning && !scanFeedback && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                    <div className="relative w-64 h-64 sm:w-80 sm:h-80">
+                      <span className="absolute top-0 left-0 w-9 h-9 border-t-4 border-l-4 border-blue-400 rounded-tl-2xl" />
+                      <span className="absolute top-0 right-0 w-9 h-9 border-t-4 border-r-4 border-blue-400 rounded-tr-2xl" />
+                      <span className="absolute bottom-0 left-0 w-9 h-9 border-b-4 border-l-4 border-blue-400 rounded-bl-2xl" />
+                      <span className="absolute bottom-0 right-0 w-9 h-9 border-b-4 border-r-4 border-blue-400 rounded-br-2xl" />
+                    </div>
+                  </div>
+                )}
+
                 {!isScanning && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 text-slate-200">
                     <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-3">
@@ -553,6 +635,48 @@ export const PresensiView: React.FC = () => {
                     >
                       Buka Scanner QR
                     </button>
+                  </div>
+                )}
+
+                {/* Kontrol senter & zoom — hanya muncul kalau kamera perangkat mendukung */}
+                {isFullscreenScan && isScanning && (torchSupported || zoomSupported) && (
+                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+                    {torchSupported && (
+                      <button
+                        type="button"
+                        onClick={toggleTorch}
+                        aria-label="Senter"
+                        className={`w-11 h-11 rounded-full flex items-center justify-center border backdrop-blur-sm transition ${
+                          torchOn
+                            ? 'bg-amber-400 border-amber-300 text-slate-900'
+                            : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                        }`}
+                      >
+                        {torchOn ? <Flashlight className="w-5 h-5" /> : <FlashlightOff className="w-5 h-5" />}
+                      </button>
+                    )}
+
+                    {zoomSupported && zoomCaps && (
+                      <div className="flex items-center gap-1 bg-white/10 border border-white/20 rounded-full px-1 py-1 backdrop-blur-sm">
+                        <button
+                          type="button"
+                          aria-label="Perkecil zoom"
+                          onClick={() => handleZoomChange(zoomValue - zoomCaps.step)}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition"
+                        >
+                          <ZoomOut className="w-4 h-4" />
+                        </button>
+                        <span className="text-[11px] font-bold text-white w-8 text-center select-none">{zoomValue.toFixed(1)}x</span>
+                        <button
+                          type="button"
+                          aria-label="Perbesar zoom"
+                          onClick={() => handleZoomChange(zoomValue + zoomCaps.step)}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition"
+                        >
+                          <ZoomIn className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -593,7 +717,7 @@ export const PresensiView: React.FC = () => {
                         <div className="w-24 h-24 rounded-full bg-rose-600 flex items-center justify-center shadow-lg shadow-rose-600/40 mb-4">
                           <XCircle className="w-14 h-14 text-white" />
                         </div>
-                        <p className="text-xl font-black text-white mb-1">Gagal Presensi</p>
+                        <p className="text-xl font-black text-white mb-1">Gagal</p>
                         <p className="text-sm font-semibold text-rose-300 max-w-xs">{scanFeedback.message}</p>
                       </div>
                     )}

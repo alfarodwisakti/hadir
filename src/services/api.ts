@@ -2,7 +2,7 @@ import { Siswa, PresensiRecord, UserSession, ApiResponse, RekapHarianData, Rekap
 
 export const DEFAULT_KELAS = "8.G";
 export const JAM_BATAS_TERLAMBAT = "07:15";
-const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxxJPx6V3ocBaaeS33ce3Ao0JeejV1cqW9VpP3tZLN8I76I9Myg4ZiC9xv_LzvrSFiMWg/exec";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbynlV9klUDzVLNbaYa_wbrrJylbbbNdO6kWcJ6wLNxPo37d8sUYH-q7h5VpPWpb1dP2rg/exec";
 
 const INITIAL_SISWA: Siswa[] = [];
 
@@ -231,11 +231,15 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
   const session = getSession();
 
   if (!apiUrl || apiUrl.includes("MY_APP_URL")) {
-    return executeLocalAction(action, payload);
+    return {
+      success: false,
+      offline: true,
+      message: "URL Web App belum diatur. Buka menu Settings dan isi URL Apps Script terlebih dahulu."
+    };
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const res = await fetch(apiUrl, {
@@ -251,16 +255,36 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
        const json = await res.json();
        if (json && json.success) {
          if (action === "getDaftarSiswa" && Array.isArray(json.data)) {
+           // Cache lokal HANYA untuk mempercepat tampilan (autocomplete dsb).
+           // Bukan sumber data utama — semua aksi tetap wajib lewat server.
            saveLocalSiswa(json.data);
          }
        }
        return json;
      }
 
-     return executeLocalAction(action, payload);
-   } catch {
+     // PENTING: sebelumnya kode ini diam-diam jatuh ke penyimpanan lokal
+     // (localStorage) di perangkat itu sendiri kalau server tidak merespon
+     // dengan status OK. Akibatnya data presensi/rekap yang "berhasil"
+     // tersimpan sebenarnya HANYA ada di satu perangkat/browser itu saja,
+     // dan tidak pernah sampai ke Google Sheet bersama — perangkat/akun lain
+     // tidak akan pernah melihatnya. Sekarang kegagalan dilaporkan apa
+     // adanya supaya tidak ada data yang "hilang" secara diam-diam.
+     return {
+       success: false,
+       offline: true,
+       message: `Server merespon dengan status ${res.status}. Data TIDAK tersimpan ke database bersama. Periksa deployment Apps Script.`
+     };
+   } catch (err: any) {
      clearTimeout(timeoutId);
-     return executeLocalAction(action, payload);
+     const isTimeout = err?.name === "AbortError";
+     return {
+       success: false,
+       offline: true,
+       message: isTimeout
+         ? "Waktu tunggu server habis (15 detik). Data TIDAK tersimpan ke database bersama. Coba lagi atau periksa koneksi internet."
+         : "Tidak dapat terhubung ke server pusat (Google Sheet). Data TIDAK tersimpan/tersinkron ke perangkat lain. Periksa koneksi internet atau URL Web App di menu Settings."
+     };
    }
 }
 

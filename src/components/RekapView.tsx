@@ -9,7 +9,8 @@ import {
   Clock, 
   HelpCircle,
   XCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  WifiOff
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { callAPI, DEFAULT_KELAS } from '../services/api';
@@ -34,6 +35,7 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
   const [tglMulai, setTglMulai] = useState(formatDateInput(weekAgo));
   const [tglSelesai, setTglSelesai] = useState(formatDateInput(today));
   const [loading, setLoading] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [data, setData] = useState<RekapPeriodeData>({
     totalHadir: 0,
@@ -54,9 +56,13 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
 
       if (res.success && res.data) {
         setData(res.data);
+        setSyncError(null);
+      } else {
+        setSyncError(res.message || 'Gagal memuat data dari server.');
       }
     } catch (err) {
       console.error("Gagal memuat rekap:", err);
+      setSyncError('Gagal terhubung ke server.');
     } finally {
       setLoading(false);
     }
@@ -235,6 +241,16 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {syncError && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 text-sm">
+          <WifiOff className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">Tidak terhubung ke server pusat</p>
+            <p className="text-xs text-rose-700 mt-0.5">{syncError} Rekap yang tampil mungkin tidak sinkron dengan perangkat lain sampai koneksi pulih.</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Calendar,
   Sparkles,
-  Search
+  Search,
+  WifiOff
 } from 'lucide-react';
 import { callAPI, formatTanggal, formatJam, DEFAULT_KELAS } from '../services/api';
 import { RekapHarianData, StatusPresensi } from '../types';
@@ -31,6 +32,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
     log: []
   });
   const [loading, setLoading] = useState(true);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(formatJam());
   const [searchQuery, setSearchQuery] = useState('');
   const todayStr = formatTanggal();
@@ -50,9 +52,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
       const res = await callAPI("getRekapHarian", { tanggal: todayStr, kelas: DEFAULT_KELAS });
       if (res.success && res.data) {
         setData(res.data);
+        setSyncError(null);
+      } else {
+        // Jangan diam-diam tetap tampil 0 — beri tahu kalau gagal terhubung
+        // ke server bersama, supaya jelas ini masalah koneksi, bukan
+        // memang belum ada presensi hari ini.
+        setSyncError(res.message || 'Gagal memuat data dari server.');
       }
     } catch (err) {
       console.error("Gagal memuat rekap harian:", err);
+      setSyncError('Gagal terhubung ke server.');
     } finally {
       setLoading(false);
     }
@@ -94,6 +103,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, userRo
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
+      {syncError && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-4 text-sm">
+          <WifiOff className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">Tidak terhubung ke server pusat</p>
+            <p className="text-xs text-rose-700 mt-0.5">{syncError} Data yang tampil mungkin tidak sinkron dengan perangkat lain sampai koneksi pulih.</p>
+          </div>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className={`rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 ${isVisitor ? 'bg-gradient-to-r from-sky-600 via-indigo-600 to-violet-600 shadow-sky-600/20' : 'bg-gradient-to-r from-blue-600 to-indigo-700 shadow-blue-600/10'}`}>
         <div>
