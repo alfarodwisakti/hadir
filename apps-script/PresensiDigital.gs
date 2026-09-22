@@ -333,6 +333,26 @@ function doPost(e) {
         const nama = matchedSiswa.nama || "Tidak Diketahui";
         const kelas = matchedSiswa.kelas || "8.G";
 
+        // Cegah dobel catat: kalau siswa ini sudah punya baris presensi untuk
+        // tanggal yang sama, jangan tambah baris baru — beri tahu frontend
+        // lewat flag "duplicate" supaya bisa ditampilkan notifikasi khusus
+        // ("sudah terpresensi"), bukan dianggap gagal ataupun dicatat dua kali.
+        const sudahPresensiHariIni = getPresensiRows().some((r) => {
+          return r.nomorQr.toLowerCase() === cleanTargetQr && normalizeDate(r.tanggal) === tanggal;
+        });
+
+        if (sudahPresensiHariIni) {
+          response = {
+            success: true,
+            duplicate: true,
+            message: `${nama} sudah tercatat presensi hari ini.`,
+            nama: nama,
+            kelas: kelas,
+            status: status
+          };
+          break;
+        }
+
         if (status === "Hadir" && jam && jam.substring(0, 5) > JAM_BATAS_TERLAMBAT) {
           status = "Terlambat";
         }

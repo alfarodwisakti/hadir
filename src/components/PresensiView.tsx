@@ -11,7 +11,11 @@ import {
   Clock,
   UserCheck,
   Video,
-  Volume2
+  Volume2,
+  Maximize2,
+  Minimize2,
+  Monitor,
+  XCircle
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { callAPI, formatTanggal, formatJam, DEFAULT_KELAS } from '../services/api';
@@ -23,6 +27,12 @@ interface SessionLogItem {
   status: StatusPresensi;
   metode: MetodePresensi;
   jam: string;
+}
+
+interface ScanFeedback {
+  type: 'success' | 'duplicate' | 'error';
+  nama?: string;
+  message: string;
 }
 
 export const PresensiView: React.FC = () => {
@@ -43,6 +53,9 @@ export const PresensiView: React.FC = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const isCooldownRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const [isFullscreenScan, setIsFullscreenScan] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<ScanFeedback | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Manual Tab state
   const [manualQuery, setManualQuery] = useState('');
@@ -103,6 +116,33 @@ export const PresensiView: React.FC = () => {
     }
   };
 
+  // Ucapkan kata lewat text-to-speech browser (dipakai untuk suara "Hebat"
+  // saat siswa sudah terpresensi, supaya tidak perlu file audio tambahan).
+  const speak = (text: string) => {
+    try {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'id-ID';
+      utterance.rate = 1;
+      utterance.pitch = 1.1;
+      utterance.volume = 1;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Abaikan jika text-to-speech tidak didukung browser.
+    }
+  };
+
+  const triggerScanFeedback = (feedback: ScanFeedback, durationMs: number = 2000) => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    setScanFeedback(feedback);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setScanFeedback(null);
+    }, durationMs);
+  };
+
   // Load students for cache & manual autocomplete
   useEffect(() => {
     const loadStudents = async () => {
@@ -126,6 +166,12 @@ export const PresensiView: React.FC = () => {
 
     return () => {
       stopScanner();
+      if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current);
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -222,21 +268,39 @@ export const PresensiView: React.FC = () => {
 
           isCooldownRef.current = true;
           setScannerStatus(`Memproses kode: ${cleaned}...`);
-          playBeep(true);
 
           const result = await handleAttendance(cleaned, "Hadir", "Scan", "", {
             playSuccessSound: false,
             playErrorSound: false
           });
 
-          if (!result.success) {
+          if (result.success && result.duplicate) {
+            speak('Hebat!');
+            triggerScanFeedback({
+              type: 'duplicate',
+              nama: result.nama,
+              message: result.message || `${result.nama || 'Siswa'} sudah tercatat presensi hari ini.`
+            });
+          } else if (result.success) {
+            playBeep(true);
+            triggerScanFeedback({
+              type: 'success',
+              nama: result.nama,
+              message: `Status: ${result.status || 'Hadir'}`
+            });
+          } else {
             playBeep(false);
+            triggerScanFeedback({
+              type: 'error',
+              message: result.message || 'Barcode/QR tidak dikenali.'
+            });
           }
 
+          const cooldownDuration = isFullscreenScan ? 2200 : 1200;
           setTimeout(() => {
             isCooldownRef.current = false;
             setScannerStatus('Scanner aktif. Arahkan barcode/QR ke kamera.');
-          }, 1200);
+          }, cooldownDuration);
         },
         () => {
           // Frame error (normal during search)
@@ -269,6 +333,8 @@ export const PresensiView: React.FC = () => {
       } finally {
         setIsScanning(false);
         setScannerStatus('Scanner dihentikan.');
+        setIsFullscreenScan(false);
+        setScanFeedback(null);
       }
     }
   };
@@ -435,12 +501,45 @@ export const PresensiView: React.FC = () => {
                   <span>Upload Foto QR</span>
                   <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                 </label>
+
+                <button
+                  type="button"
+                  id="btnFullscreenScan"
+                  onClick={() => {
+                    if (!isScanning) {
+                      startScanner();
+                    }
+                    setIsFullscreenScan(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Layar Penuh</span>
+                </button>
               </div>
 
-              <div className="relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center min-h-[300px]">
-                <div id="reader" className="w-full h-full max-w-[420px]" />
+              <div
+                className={
+                  isFullscreenScan
+                    ? 'fixed inset-0 z-[999] bg-black flex flex-col items-center justify-center'
+                    : 'relative rounded-2xl overflow-hidden bg-slate-950 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center min-h-[300px]'
+                }
+              >
+                {isFullscreenScan && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFullscreenScan(false)}
+                    aria-label="Tutup layar penuh"
+                    className="absolute top-4 right-4 z-40 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center justify-center transition backdrop-blur-sm"
+                  >
+                    <Minimize2 className="w-5 h-5" />
+                  </button>
+                )}
+
+                <div id="reader" className={isFullscreenScan ? 'w-full h-full max-w-none' : 'w-full h-full max-w-[420px]'} />
+
                 {!isScanning && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 text-slate-200">
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-center bg-slate-900/90 text-slate-200">
                     <div className="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-3">
                       <Camera className="w-7 h-7" />
                     </div>
@@ -454,6 +553,50 @@ export const PresensiView: React.FC = () => {
                     >
                       Buka Scanner QR
                     </button>
+                  </div>
+                )}
+
+                {isFullscreenScan && (
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-black/50 border border-white/10 text-white text-xs font-medium backdrop-blur-sm max-w-[90%] text-center">
+                    {scannerStatus}
+                  </div>
+                )}
+
+                {/* Overlay animasi hasil scan (nama siswa, centang biru, gagal merah, "Hebat") — khusus mode Layar Penuh */}
+                {isFullscreenScan && scanFeedback && (
+                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+                    {scanFeedback.type === 'success' && (
+                      <div className="flex flex-col items-center text-center px-6 animate-scan-pop">
+                        <div className="relative flex items-center justify-center mb-4">
+                          <span className="absolute w-24 h-24 rounded-full border-4 border-blue-400 animate-scan-ring" />
+                          <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/40">
+                            <CheckCircle2 className="w-14 h-14 text-white" />
+                          </div>
+                        </div>
+                        <p className="text-2xl font-black text-white mb-1">{scanFeedback.nama || 'Presensi Berhasil'}</p>
+                        <p className="text-sm font-semibold text-blue-300">{scanFeedback.message}</p>
+                      </div>
+                    )}
+
+                    {scanFeedback.type === 'duplicate' && (
+                      <div className="flex flex-col items-center text-center px-6 animate-scan-pop">
+                        <div className="w-24 h-24 rounded-full bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/40 mb-4">
+                          <Monitor className="w-14 h-14 text-white" />
+                        </div>
+                        <p className="text-2xl font-black text-white mb-1">Hebat, {scanFeedback.nama || 'Siswa'}!</p>
+                        <p className="text-sm font-semibold text-amber-300">{scanFeedback.message}</p>
+                      </div>
+                    )}
+
+                    {scanFeedback.type === 'error' && (
+                      <div className="flex flex-col items-center text-center px-6 animate-scan-shake">
+                        <div className="w-24 h-24 rounded-full bg-rose-600 flex items-center justify-center shadow-lg shadow-rose-600/40 mb-4">
+                          <XCircle className="w-14 h-14 text-white" />
+                        </div>
+                        <p className="text-xl font-black text-white mb-1">Gagal Presensi</p>
+                        <p className="text-sm font-semibold text-rose-300 max-w-xs">{scanFeedback.message}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

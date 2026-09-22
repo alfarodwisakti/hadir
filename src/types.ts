@@ -77,4 +77,5 @@ export interface ApiResponse<T = any> {
   provider?: 'local' | 'supabase';
   saved?: number;
   skipped?: string[];
+  duplicate?: boolean;
 }
