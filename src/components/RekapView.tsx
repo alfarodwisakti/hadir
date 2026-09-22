@@ -143,24 +143,41 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
           cursor.setDate(cursor.getDate() + 1);
         }
 
-        const statusCols = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-        const labelRow = 9;
-        const valueRow = 10;
-        const startRow = 11;
+        // Template REKAP MINGGUAN hanya punya 5 slot kolom tanggal (D:G, H:K,
+        // L:O, P:S, T:W). Kalau rentang tanggal yang dipilih lebih dari 5 hari,
+        // potong ke 5 pertama supaya tidak menimpa kolom %Kehadiran/Status Evaluasi.
+        const dateColumns = dates.slice(0, 5);
+        if (dates.length > 5) {
+          alert(`Rentang tanggal yang dipilih (${dates.length} hari) melebihi kapasitas template mingguan (maks. 5 hari). Hanya 5 tanggal pertama yang akan diisi.`);
+        }
 
-        let colIndex = 3;
-        dates.forEach((date, idx) => {
-          const groupStart = colIndex + idx * 5;
+        // Baris pada template: 9 = header utama, 10 = "(Hari/Tanggal)" per
+        // kelompok kolom, 11 = sub-header Hadir/Izin/Sakit/Alpa (sudah ada di
+        // template, tidak perlu ditulis ulang), 12 = data siswa pertama.
+        const labelRow = 10;
+        const startRow = 12;
+
+        // Ambil data presensi ASLI per tanggal dari server (bukan cuma total),
+        // supaya tiap kolom tanggal berisi tanda kehadiran harian yang benar.
+        const dailyStatusByDate: Record<string, Record<string, string>> = {};
+        for (const date of dateColumns) {
+          const res = await callAPI('getRekapHarian', { tanggal: date, kelas: DEFAULT_KELAS });
+          const map: Record<string, string> = {};
+          if (res.success && res.data && Array.isArray(res.data.log)) {
+            res.data.log.forEach((entry: any) => {
+              map[entry.nomorQr] = entry.status;
+            });
+          }
+          dailyStatusByDate[date] = map;
+        }
+
+        // Setiap grup tanggal lebarnya 4 kolom (Hadir/Izin/Sakit/Alpa) dan
+        // berurutan langsung tanpa jarak, jadi kelipatannya 4 (bukan 5).
+        const firstGroupStart = 3; // kolom D (0-indexed)
+        dateColumns.forEach((date, idx) => {
+          const groupStart = firstGroupStart + idx * 4;
           const cellKeyDate = XLSX.utils.encode_cell({ c: groupStart, r: labelRow - 1 });
-          const cellKeyHadir = XLSX.utils.encode_cell({ c: groupStart, r: valueRow - 1 });
-          const cellKeyIzin = XLSX.utils.encode_cell({ c: groupStart + 1, r: valueRow - 1 });
-          const cellKeySakit = XLSX.utils.encode_cell({ c: groupStart + 2, r: valueRow - 1 });
-          const cellKeyAlpa = XLSX.utils.encode_cell({ c: groupStart + 3, r: valueRow - 1 });
           ws[cellKeyDate] = { t: 's', v: date };
-          ws[cellKeyHadir] = { t: 's', v: 'Hadir' };
-          ws[cellKeyIzin] = { t: 's', v: 'Izin' };
-          ws[cellKeySakit] = { t: 's', v: 'Sakit' };
-          ws[cellKeyAlpa] = { t: 's', v: 'Alpa' };
         });
 
         reportRows.forEach((s, index) => {
@@ -171,10 +188,16 @@ export const RekapView: React.FC<RekapViewProps> = ({ userRole }) => {
           ws[`X${rowNum}`] = { t: 'n', v: s.persenHadir };
           ws[`Y${rowNum}`] = { t: 's', v: s.persenHadir < 75 ? 'Perlu Perhatian (<75%)' : 'Baik' };
 
-          const statusValues = [s.hadir, s.izin, s.sakit, s.alpa];
-          const firstGroupStart = 3;
-          statusValues.forEach((val, statusIndex) => {
-            ws[XLSX.utils.encode_cell({ c: firstGroupStart + statusIndex, r: rowNum - 1 })] = { t: 'n', v: val };
+          dateColumns.forEach((date, idx) => {
+            const groupStart = firstGroupStart + idx * 4;
+            const statusHariItu = dailyStatusByDate[date]?.[s.nomorQr];
+            const tandai = (offset: number, cocok: boolean) => {
+              ws[XLSX.utils.encode_cell({ c: groupStart + offset, r: rowNum - 1 })] = { t: 'n', v: cocok ? 1 : 0 };
+            };
+            tandai(0, statusHariItu === 'Hadir' || statusHariItu === 'Terlambat');
+            tandai(1, statusHariItu === 'Izin');
+            tandai(2, statusHariItu === 'Sakit');
+            tandai(3, statusHariItu === 'Alpa');
           });
         });
       }
