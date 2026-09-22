@@ -115,7 +115,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       <div className="w-full max-w-5xl relative z-10 grid gap-6 lg:grid-cols-[1.15fr_0.85fr] items-center">
         <div className="hidden lg:flex flex-col gap-5 rounded-[32px] border border-cyan-300/10 bg-slate-950/35 p-8 backdrop-blur-xl shadow-[0_30px_80px_rgba(15,23,42,0.7)]">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
-            Smart School
+            Class Digital
           </div>
           <div className="space-y-4">
             <h2 className="text-4xl font-black leading-tight text-white">
@@ -153,7 +153,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
-                  Smart School
+                  Class Digital
                 </div>
                 <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">SMP NEGERI 18 PADANG</h1>
               </div>
