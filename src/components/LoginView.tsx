@@ -22,6 +22,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ totalSiswa: 0, persentaseHadir: 0 });
+
+  // Fetch stats from spreadsheet on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Get student count
+        const siswaRes = await callAPI('getDaftarSiswa', { kelas: '8.G' });
+        if (siswaRes.success && Array.isArray(siswaRes.data)) {
+          const totalSiswa = siswaRes.data.length;
+          
+          // Get today's attendance to calculate percentage
+          const today = new Date().toISOString().split('T')[0];
+          const rekapRes = await callAPI('getRekapPeriode', { 
+            startDate: today, 
+            endDate: today 
+          });
+          
+          let hadirCount = 0;
+          if (rekapRes.success && Array.isArray(rekapRes.data)) {
+            // Count students marked as Hadir today
+            hadirCount = rekapRes.data.filter((r: any) => r.status === 'Hadir').length;
+          }
+          
+          const persentaseHadir = totalSiswa > 0 ? Math.round((hadirCount / totalSiswa) * 100) : 0;
+          
+          setStats({ totalSiswa, persentaseHadir });
+        }
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+        // Keep default values if fetch fails
+      }
+    };
+    
+    fetchStats();
+  }, []);
 
   const visitorLabel = 'Masuk sebagai Pengunjung';
   const adminLabel = 'Masuk sebagai Admin';
@@ -129,8 +165,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
           <div className="grid grid-cols-3 gap-3 mt-2">
             {[
-              ['768', 'Siswa'],
-              ['96%', 'Hadir'],
+              [stats.totalSiswa.toString(), 'Siswa'],
+              [`${stats.persentaseHadir}%`, 'Hadir'],
               ['24/7', 'Realtime']
             ].map(([value, label]) => (
               <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm">
