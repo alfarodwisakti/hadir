@@ -1,7 +1,6 @@
 // Google Apps Script backend untuk Presensi Digital 8.G
 const SPREADSHEET_ID = "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo";
 const SHEET_ADMIN = "Admin";
-const SHEET_DATA_SISWA = "Siswa"; // DIUBAH menjadi "Siswa" agar cocok dengan fungsi helper
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
@@ -10,11 +9,24 @@ const WA_TOKEN = "JhoAvrvGXDPYWGRMX7Ng";
 const WA_URL = "https://api.fonnte.com/send";
 
 function getSpreadsheet() {
-  if (!SPREADSHEET_ID) {
-    throw new Error("Spreadsheet ID tidak ditemukan.");
-  }
+  if (!SPREADSHEET_ID) throw new Error("Spreadsheet ID tidak ditemukan.");
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
+
+// Fungsi cerdas untuk menemukan sheet siswa (bisa "Siswa" atau "Data Siswa")
+function getSheetSiswaName() {
+  const ss = getSpreadsheet();
+  const sheets = ss.getSheets();
+  for (let i = 0; i < sheets.length; i++) {
+    const name = sheets[i].getName();
+    if (name.toLowerCase() === "siswa" || name.toLowerCase() === "data siswa") {
+      return name;
+    }
+  }
+  return "Siswa"; // Default fallback
+}
+
+const SHEET_DATA_SISWA = getSheetSiswaName();
 
 function asText(value) {
   return value == null ? "" : String(value).trim();
@@ -54,17 +66,24 @@ function normalizeTime(value) {
 function readSheetRows(sheetName) {
   const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return [];
+  if (!sheet) {
+    Logger.log("ERROR: Sheet '" + sheetName + "' tidak ditemukan!");
+    return [];
+  }
 
   const values = sheet.getDataRange().getValues();
   if (!values || values.length < 2) return [];
 
   const headers = values[0].map((header) => asText(header).toLowerCase().replace(/\s+/g, ""));
+  
   return values.slice(1).map((row) => {
     const rowObj = {};
     headers.forEach((header, idx) => {
       rowObj[header] = row[idx] ?? "";
     });
+    // Simpan juga data mentah berdasarkan indeks untuk fallback
+    rowObj._raw = row; 
+    rowObj._headers = headers;
     return rowObj;
   });
 }
@@ -79,15 +98,39 @@ function getAdminUsers() {
 }
 
 function getDaftarSiswa(kelasFilter) {
-  const rows = readSheetRows(SHEET_DATA_SISWA).map((row) => ({
-    nomorQr: asText(row["nomorqr"] || row["noqr"] || row["nomorqr"]),
-    nama: asText(row.nama),
-    kelas: asText(row.kelas),
-    noOrtu: asText(row["no_ortu"] || row["nohp"] || row["notelepon"]) // Ambil juga jika ada kolom no_ortu
-  }));
+  const rows = readSheetRows(SHEET_DATA_SISWA);
+  
+  return rows.map((row) => {
+    // Cari nomor QR (bisa di kolom 'nomorqr', 'noqr', 'nis', atau kolom A)
+    let nomorQr = asText(row["nomorqr"] || row["noqr"] || row["nis"] || row._raw[0]);
+    
+    // Cari Nomor HP Ortu secara dinamis berdasarkan nama header
+    // Mencari header yang mengandung kata: 'no_ortu', 'nohp', 'hp', 'telepon', 'wa'
+    let noOrtu = "";
+    const possibleKeys = ["no_ortu", "nohp", "notelepon", "hp_ortu", "wa_ortu", "nomorhp"];
+    
+    for (let key of possibleKeys) {
+      if (row[key]) {
+        noOrtu = asText(row[key]);
+        break;
+      }
+    }
+    
+    // Fallback: Jika tidak ketemu header spesifik, ambil kolom ke-4 (Index 3 / Kolom D)
+    if (!noOrtu && row._raw.length > 3) {
+      noOrtu = asText(row._raw[3]);
+    }
 
-  if (!kelasFilter) return rows;
-  return rows.filter((item) => item.kelas.toUpperCase() === kelasFilter.toUpperCase());
+    return {
+      nomorQr: nomorQr,
+      nama: asText(row.nama),
+      kelas: asText(row.kelas),
+      noOrtu: noOrtu
+    };
+  }).filter(item => {
+    if (!kelasFilter) return true;
+    return item.kelas.toUpperCase() === kelasFilter.toUpperCase();
+  });
 }
 
 function getPresensiRows() {
@@ -122,9 +165,8 @@ function doGet(e) {
   return ContentService
     .createTextOutput(JSON.stringify({
       success: true,
-      message: "Google Apps Script backend aktif.",
-      spreadsheetId: SPREADSHEET_ID,
-      sheets: [SHEET_ADMIN, SHEET_DATA_SISWA, SHEET_PRESENSI]
+      message: "Backend aktif. Sheet Siswa terdeteksi: " + SHEET_DATA_SISWA,
+      spreadsheetId: SPREADSHEET_ID
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -243,7 +285,6 @@ function doPost(e) {
         const nomorQr = asText(body.nomorQr);
         const nama = asText(body.nama);
         const kelas = asText(body.kelas);
-        // Opsional: ambil no_ortu jika dikirim dari frontend
         const noOrtu = asText(body.noOrtu || ""); 
         
         if (!nomorQr || !nama || !kelas) {
@@ -252,7 +293,6 @@ function doPost(e) {
         }
 
         const sheet = getSpreadsheet().getSheetByName(SHEET_DATA_SISWA);
-        // Urutan: NomorQR, Nama, Kelas, No_Ortu
         sheet.appendRow([nomorQr, nama, kelas, noOrtu]);
         response = { success: true, message: "Siswa berhasil ditambahkan." };
         break;
@@ -270,7 +310,6 @@ function doPost(e) {
           if (String(dataRange[i][0]).trim() === nomorQr) {
             sheet.getRange(i + 1, 2).setValue(nama);
             sheet.getRange(i + 1, 3).setValue(kelas);
-            // Update No Ortu jika ada (Kolom D = index 4)
             if (body.noOrtu !== undefined) {
                sheet.getRange(i + 1, 4).setValue(asText(body.noOrtu));
             }
@@ -325,18 +364,26 @@ function doPost(e) {
 
         const daftarSiswa = getDaftarSiswa();
         const cleanTargetQr = nomorQr.toLowerCase();
+        
+        // Debug log
+        Logger.log("Mencari QR: " + cleanTargetQr + " di antara " + daftarSiswa.length + " siswa.");
+
         const matchedSiswa = daftarSiswa.find((s) => s.nomorQr.toLowerCase() === cleanTargetQr);
 
         if (!matchedSiswa) {
-          response = { success: false, message: `Nomor QR "${nomorQr}" tidak terdaftar di Data Siswa.` };
+          // Coba log semua QR yang ada untuk debug
+          const allQrs = daftarSiswa.map(s => s.nomorQr).join(", ");
+          Logger.log("GAGAL: QR tidak ditemukan. Daftar QR yang ada: " + allQrs);
+          
+          response = { success: false, message: `Nomor QR "${nomorQr}" tidak terdaftar. (Cek penulisan/spasi)` };
           break;
         }
 
         const nama = matchedSiswa.nama || "Tidak Diketahui";
         const kelas = matchedSiswa.kelas || "8.G";
-        
-        // Ambil nomor ortu dari hasil query siswa (jika ada di sheet)
-        const noOrtuDariSheet = matchedSiswa.noOrtu || "";
+        const noOrtuDariSheet = matchedSiswa.noOrtu;
+
+        Logger.log("Siswa ditemukan: " + nama + ", No Ortu: " + (noOrtuDariSheet || "KOSONG"));
 
         const sudahPresensiHariIni = getPresensiRows().some((r) => {
           return r.nomorQr.toLowerCase() === cleanTargetQr && normalizeDate(r.tanggal) === tanggal;
@@ -363,12 +410,16 @@ function doPost(e) {
         
         response = { success: true, message: "Presensi disimpan.", nama: nama, kelas: kelas, status: status };
 
-        // --- KIRIM NOTIFIKASI WA ---
-        // Kirim jika status Hadir/Terlambat dan ada nomor ortu
-        if ((status === "Hadir" || status === "Terlambat") && noOrtuDariSheet) {
-           kirimWaOrtu(nama, status, noOrtuDariSheet, jam.substring(0,5));
-        } else if ((status === "Hadir" || status === "Terlambat") && !noOrtuDariSheet) {
-           Logger.log("Gagal kirim WA: Nomor orang tua untuk " + nama + " tidak ditemukan di sheet.");
+        // --- LOGIKA KIRIM WA ---
+        if ((status === "Hadir" || status === "Terlambat")) {
+          if (noOrtuDariSheet && noOrtuDariSheet.length > 5) {
+             Logger.log("Mengirim WA ke " + noOrtuDariSheet + " untuk " + nama);
+             kirimWaOrtu(nama, status, noOrtuDariSheet, jam.substring(0,5));
+          } else {
+             Logger.log("GAGAL KIRIM WA: Nomor HP kosong atau tidak valid untuk siswa " + nama);
+             // Opsional: Tambahkan flag ke response bahwa WA gagal dikirim karena nomor kosong
+             response.warning = "Presensi berhasil, tapi Gagal kirim WA karena Nomor HP Orang Tua kosong di database.";
+          }
         }
         
         break;
@@ -416,11 +467,6 @@ function doPost(e) {
             id, tanggal, jam, nomorQr, matched.nama, matched.kelas || kelasDefault,
             status, "Observasi", keterangan, mapel, guru
           ]);
-          
-          // Opsional: Kirim WA juga untuk presensi Mapel jika diinginkan
-          // if ((status === "Hadir" || status === "Terlambat") && matched.noOrtu) {
-          //    kirimWaOrtu(matched.nama, status + " (" + mapel + ")", matched.noOrtu, jam.substring(0,5));
-          // }
         });
 
         if (rowsToInsert.length > 0) {
@@ -429,14 +475,9 @@ function doPost(e) {
             .setValues(rowsToInsert);
         }
 
-        let message = `Presensi mapel "${mapel}" tersimpan untuk ${rowsToInsert.length} siswa.`;
-        if (dilewati.length > 0) {
-          message += ` (${dilewati.length} nomor QR tidak dikenali dilewati)`;
-        }
-
         response = {
           success: true,
-          message: message,
+          message: `Presensi mapel "${mapel}" tersimpan.`,
           saved: rowsToInsert.length,
           skipped: dilewati
         };
@@ -444,6 +485,7 @@ function doPost(e) {
       }
     }
   } catch (err) {
+    Logger.log("ERROR UTAMA: " + err.toString());
     response = { success: false, message: err.message };
   }
 
@@ -462,6 +504,8 @@ function kirimWaOrtu(namaSiswa, status, noOrtu, waktu) {
   if (noOrtu.startsWith("0")) {
     noOrtu = "62" + noOrtu.substring(1);
   }
+  // Hapus karakter non-angka
+  noOrtu = noOrtu.replace(/\D/g, '');
   
   var pesan = `Yth. Wali Murid,\n\nAnak Anda *${namaSiswa}* telah melakukan presensi *\${status}* pada jam ${waktu}.\n\nTerima kasih.\n- Class Digital SMPN 18 Padang`;
 
@@ -482,31 +526,18 @@ function kirimWaOrtu(namaSiswa, status, noOrtu, waktu) {
 
   try {
     var response = UrlFetchApp.fetch(WA_URL, options);
-    Logger.log("WA terkirim ke " + noOrtu + ": " + response.getContentText());
-  } catch (e) {
-    Logger.log("Gagal kirim WA ke " + noOrtu + ": " + e.toString());
-  }
-}
-
-// Fungsi helper tambahan jika ingin mencari manual (tidak digunakan langsung jika data sudah diambil di getDaftarSiswa)
-function getNomorOrtu(nisCari) {
-  var ss = getSpreadsheet();
-  var sheetSiswa = ss.getSheetByName(SHEET_DATA_SISWA); 
-  
-  if (!sheetSiswa) return null;
-  
-  var data = sheetSiswa.getDataRange().getValues();
-  
-  for (var i = 1; i < data.length; i++) { 
-    var nisData = String(data[i][0]).trim(); 
+    var resultText = response.getContentText();
+    Logger.log("RESPON FONNTE: " + resultText);
     
-    if (nisData == String(nisCari).trim()) {
-      var noHp = String(data[i][3]).trim(); // Kolom D (Index 3)
-      if (noHp.startsWith("0")) {
-        noHp = "62" + noHp.substring(1);
+    // Cek apakah respon sukses dari Fonnte
+    try {
+      var jsonResult = JSON.parse(resultText);
+      if (jsonResult.success !== true && jsonResult.status !== 200) {
+         Logger.log("PERINGATAN: Fonnte mengembalikan error: " + resultText);
       }
-      return noHp;
-    }
+    } catch(e) {}
+    
+  } catch (e) {
+    Logger.log("GAGAL KIRIM WA (Network Error): " + e.toString());
   }
-  return null;
 }
