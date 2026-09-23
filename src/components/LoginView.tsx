@@ -38,11 +38,19 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       });
 
       if (res.success && res.token) {
+        // Admin credentials and Google visitor authentication are mutually
+        // exclusive. Clear an earlier Google session so it cannot overwrite
+        // the admin session when the app is loaded again.
+        if (supabase) {
+          await supabase.auth.signOut();
+        }
+
         const user: UserSession = {
           username: res.username || username.trim(),
           nama: res.nama || "Admin",
           role: res.role || "Admin",
-          token: res.token
+          token: res.token,
+          provider: 'local'
         };
         saveSession(user);
         onLoginSuccess(user);
