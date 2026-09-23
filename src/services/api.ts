@@ -189,7 +189,7 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
   }
 
   if (action === "simpanPresensi") {
-    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas } = payload;
+    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas, noOrtu } = payload;
     const list = getLocalSiswa();
     const siswa = list.find(s => s.nomorQr.trim() === String(nomorQr).trim());
     if (!siswa) {
@@ -220,7 +220,8 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     return {
       success: true,
       nama: siswa.nama,
-      status: finalStatus
+      status: finalStatus,
+      noOrtu: noOrtu || siswa.noOrtu // Kirim noOrtu jika ada
     };
   }
 
