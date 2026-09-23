@@ -1,72 +1,53 @@
-```gitignore
+```
+# Google Apps Script specific
+**/appsscript.json
+**/.clasp.json
+**/dist/
+
+# Compiled/Generated files
+*.pyc
+*.class
+*.o
+*.obj
+*.out
+*.exe
+*.dll
+*.so
+*.a
+
 # Dependencies
 node_modules/
+venv/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
+dist/
+build/
+coverage/
+htmlcov/
+*.egg-info/
 
 # Environment
 .env
 .env.local
 .env.*
 
-# Logs and temp files
-*.log
-*.tmp
-
-# Editors
+# Editors/IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*.tmp
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+# Logs
 *.log
-.git/
-.mypy_cache/
-.pytest_cache/
-.hypothesis/
 
-# Build and distribution artifacts
-dist/
-build/
-*.egg
-*.egg-info/
-.eggs/
-.installed.cfg
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.whl
-develop-eggs/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-.deps/
-node_modules/
-jspm_packages/
+# System
+.DS_Store
+Thumbs.db
 
 # Compressed files
 *.zip
@@ -91,25 +72,4 @@ jspm_packages/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Icon?
-```
-
-Wait, let me reconsider this. Looking at the modified files only:
-
-- `apps-script/PresensiDigital.gs` - Google Apps Script file (source code)
-- `src/components/PresensiView.tsx` - React component (source code)
-
-There are no build artifacts, dependency directories, or temporary files in the changes. Both files are source code files (.gs and .tsx). According to rule #6, if the changes contain only source or config files and no build artifacts, dependencies, or temp files, I should output an empty .gitignore.
-
-```
-
 ```

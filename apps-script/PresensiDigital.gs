@@ -1,7 +1,7 @@
 // Google Apps Script backend untuk Presensi Digital 8.G
 const SPREADSHEET_ID = "1IvcU5AgRMF4a9CiY8QnSuMAQMG9pvj_mJBv_bdQPnzo";
 const SHEET_ADMIN = "Admin";
-const SHEET_DATA_SISWA = "Siswa"; // PASTIKAN NAMA TAB DI GOOGLE SHEET ADALAH "Siswa"
+const SHEET_DATA_SISWA = "Data Siswa"; // Nama tab di Google Sheet adalah "Data Siswa"
 const SHEET_PRESENSI = "Presensi";
 const JAM_BATAS_TERLAMBAT = "07:15";
 
