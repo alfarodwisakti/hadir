@@ -22,6 +22,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ totalSiswa: 0, persentaseHadir: 0 });
+
+  // Fetch stats from spreadsheet on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Get student count
+        const siswaRes = await callAPI('getDaftarSiswa', { kelas: '8.G' });
+        if (siswaRes.success && Array.isArray(siswaRes.data)) {
+          const totalSiswa = siswaRes.data.length;
+          
+          // Get today's attendance to calculate percentage
+          const today = new Date().toISOString().split('T')[0];
+          const rekapRes = await callAPI('getRekapPeriode', { 
+            startDate: today, 
+            endDate: today 
+          });
+          
+          let hadirCount = 0;
+          if (rekapRes.success && Array.isArray(rekapRes.data)) {
+            // Count students marked as Hadir today
+            hadirCount = rekapRes.data.filter((r: any) => r.status === 'Hadir').length;
+          }
+          
+          const persentaseHadir = totalSiswa > 0 ? Math.round((hadirCount / totalSiswa) * 100) : 0;
+          
+          setStats({ totalSiswa, persentaseHadir });
+        }
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+        // Keep default values if fetch fails
+      }
+    };
+    
+    fetchStats();
+  }, []);
 
   const visitorLabel = 'Masuk sebagai Pengunjung';
   const adminLabel = 'Masuk sebagai Admin';
@@ -115,7 +151,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       <div className="w-full max-w-5xl relative z-10 grid gap-6 lg:grid-cols-[1.15fr_0.85fr] items-center">
         <div className="hidden lg:flex flex-col gap-5 rounded-[32px] border border-cyan-300/10 bg-slate-950/35 p-8 backdrop-blur-xl shadow-[0_30px_80px_rgba(15,23,42,0.7)]">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
-            Smart School
+            Class Digital
           </div>
           <div className="space-y-4">
             <h2 className="text-4xl font-black leading-tight text-white">
@@ -129,8 +165,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
           <div className="grid grid-cols-3 gap-3 mt-2">
             {[
-              ['768', 'Siswa'],
-              ['96%', 'Hadir'],
+              [stats.totalSiswa.toString(), 'Siswa'],
+              [`${stats.persentaseHadir}%`, 'Hadir'],
               ['24/7', 'Realtime']
             ].map(([value, label]) => (
               <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center backdrop-blur-sm">
@@ -153,13 +189,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-100">
-                  Smart School
+                  Class Digital
                 </div>
-                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-white tracking-tight">SMP NEGERI 18 PADANG</h1>
+                <h1 className="mt-3 text-lg sm:text-xl font-bold text-slate-300 tracking-wide">SMP NEGERI 18 PADANG</h1>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-1">Presensi Digital Kelas 8G</h2>
+                <p className="text-sm text-slate-400 font-medium mt-1">Tahun Ajaran 2026/2027</p>
               </div>
-              <p className="text-sm text-slate-300 font-medium">
-                Presensi Digital Kelas 8.G
-              </p>
             </div>
 
             {errorMsg && (
@@ -250,7 +285,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div className="text-center mt-6 text-xs text-slate-400 font-medium tracking-[0.22em] uppercase">
-            Presensi Digital Kelas 8.G • SMP Negeri
+            Tahun Ajaran 2026/2027 • SMP Negeri 18 Padang
           </div>
         </div>
       </div>

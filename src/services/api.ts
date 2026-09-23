@@ -238,6 +238,12 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
     };
   }
 
+  // CRITICAL: Actions that modify data MUST reach the server. Never fall back to
+  // localStorage for write operations, or data will only exist on one device and
+  // won't sync across accounts/devices.
+  const requiresServerSync = ["simpanPresensi", "simpanPresensiMapel", "tambahSiswa", "editSiswa", "hapusSiswa"];
+  const mustReachServer = requiresServerSync.includes(action);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -254,36 +260,52 @@ export async function callAPI(action: string, payload: Record<string, any> = {})
      if (res.ok) {
        const json = await res.json();
        if (json && json.success) {
+         // Cache lokal HANYA untuk read operations seperti getDaftarSiswa
+         // untuk mempercepat tampilan (autocomplete dsb).
          if (action === "getDaftarSiswa" && Array.isArray(json.data)) {
-           // Cache lokal HANYA untuk mempercepat tampilan (autocomplete dsb).
-           // Bukan sumber data utama — semua aksi tetap wajib lewat server.
            saveLocalSiswa(json.data);
          }
        }
        return json;
      }
 
-     // PENTING: sebelumnya kode ini diam-diam jatuh ke penyimpanan lokal
-     // (localStorage) di perangkat itu sendiri kalau server tidak merespon
-     // dengan status OK. Akibatnya data presensi/rekap yang "berhasil"
-     // tersimpan sebenarnya HANYA ada di satu perangkat/browser itu saja,
-     // dan tidak pernah sampai ke Google Sheet bersama — perangkat/akun lain
-     // tidak akan pernah melihatnya. Sekarang kegagalan dilaporkan apa
-     // adanya supaya tidak ada data yang "hilang" secara diam-diam.
+     // Server returned non-OK status — data was NOT saved to shared database.
+     // Report clearly so user knows data is NOT synced to other devices/accounts.
      return {
        success: false,
        offline: true,
-       message: `Server merespon dengan status ${res.status}. Data TIDAK tersimpan ke database bersama. Periksa deployment Apps Script.`
+       message: `Server merespon dengan status ${res.status}. Data TIDAK tersimpan ke database bersama. Periksa deployment Apps Script dan koneksi internet.`
      };
    } catch (err: any) {
      clearTimeout(timeoutId);
      const isTimeout = err?.name === "AbortError";
+     
+     // If this is a write operation that requires server sync, NEVER fall back
+     // to localStorage. Report failure clearly so user can retry.
+     if (mustReachServer) {
+       return {
+         success: false,
+         offline: true,
+         message: isTimeout
+           ? "Waktu tunggu server habis (15 detik). Data TIDAK tersimpan ke database bersama. Pastikan koneksi internet stabil dan coba lagi."
+           : "Tidak dapat terhubung ke server pusat (Google Sheet). Data TIDAK tersimpan/tersinkron ke perangkat lain. Periksa koneksi internet atau URL Web App di menu Settings."
+       };
+     }
+     
+     // For read-only operations, return cached data if available (graceful degradation)
+     if (action === "getDaftarSiswa") {
+       const cached = getLocalSiswa();
+       if (cached.length > 0) {
+         return { success: true, data: cached, offline: true, message: "Menampilkan data cache (koneksi terputus)." };
+       }
+     }
+     
      return {
        success: false,
        offline: true,
        message: isTimeout
-         ? "Waktu tunggu server habis (15 detik). Data TIDAK tersimpan ke database bersama. Coba lagi atau periksa koneksi internet."
-         : "Tidak dapat terhubung ke server pusat (Google Sheet). Data TIDAK tersimpan/tersinkron ke perangkat lain. Periksa koneksi internet atau URL Web App di menu Settings."
+         ? "Waktu tunggu server habis (15 detik). Coba lagi atau periksa koneksi internet."
+         : "Tidak dapat terhubung ke server. Periksa koneksi internet atau URL Web App."
      };
    }
 }
