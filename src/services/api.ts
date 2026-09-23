@@ -88,11 +88,13 @@ export function escapeHtml(value: any): string {
 function normalizeSiswaRecord(student: any): Siswa {
   const nomorQr = String(student?.nomorQr ?? student?.["Nomor Qr"] ?? student?.["nomor qr"] ?? "").trim();
   const barcode = String(student?.barcode ?? nomorQr).trim();
+  const noOrtu = String(student?.noOrtu ?? student?.["no_ortu"] ?? student?.["No Ortu"] ?? student?.["nohp"] ?? "").trim();
   return {
     nomorQr,
     barcode: barcode || nomorQr,
     nama: String(student?.nama ?? student?.Nama ?? "").trim(),
-    kelas: String(student?.kelas ?? student?.Kelas ?? "").trim()
+    kelas: String(student?.kelas ?? student?.Kelas ?? "").trim(),
+    noOrtu: noOrtu || undefined
   };
 }
 
@@ -187,7 +189,7 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
   }
 
   if (action === "simpanPresensi") {
-    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas } = payload;
+    const { nomorQr, status: statusInput, metode, tanggal, jam, keterangan, kelas, noOrtu } = payload;
     const list = getLocalSiswa();
     const siswa = list.find(s => s.nomorQr.trim() === String(nomorQr).trim());
     if (!siswa) {
@@ -218,7 +220,8 @@ function executeLocalAction(action: string, payload: any): ApiResponse {
     return {
       success: true,
       nama: siswa.nama,
-      status: finalStatus
+      status: finalStatus,
+      noOrtu: noOrtu || siswa.noOrtu // Kirim noOrtu jika ada
     };
   }
 
