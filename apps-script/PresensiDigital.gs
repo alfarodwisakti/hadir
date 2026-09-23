@@ -442,4 +442,33 @@ function doPost(e) {
 
 function outputJson(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}// Fungsi untuk mengirim WA via Gateway (Contoh menggunakan Fonnte/Wablas)
+function kirimWaOrtu(namaSiswa, status, noOrtu, waktu) {
+  // GANTI DENGAN TOKEN DARI PENYEDIA LAYANAN ANDA
+  var token = "TOKEN_API_ANDA_DISINI"; 
+  var urlGateway = "https://api.fonnte.com/send"; // Atau URL penyedia lain
+  
+  var pesan = `Yth. Wali Murid,\n\nAnak Anda *${namaSiswa}* telah melakukan presensi *\${status}* pada jam ${waktu}.\n\nTerima kasih.\n- Class Digital SMPN 18 Padang`;
+
+  var payload = {
+    'target': noOrtu,
+    'message': pesan,
+    // 'countryCode': '62' // Tergantung dokumentasi provider
+  };
+
+  var options = {
+    'method': 'post',
+    'headers': {
+      'Authorization': token // Atau 'Content-Type': 'application/json' tergantung provider
+    },
+    'payload': payload,
+    'mute': true // Supaya tidak error jika gagal
+  };
+
+  try {
+    UrlFetchApp.fetch(urlGateway, options);
+    Logger.log("WA terkirim ke " + noOrtu);
+  } catch (e) {
+    Logger.log("Gagal kirim WA: " + e.toString());
+  }
 }
