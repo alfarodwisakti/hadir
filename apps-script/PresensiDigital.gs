@@ -446,7 +446,7 @@ function outputJson(data) {
 function kirimWaOrtu(namaSiswa, status, noOrtu, waktu) {
   // GANTI DENGAN TOKEN DARI PENYEDIA LAYANAN ANDA
   var token = "TOKEN_API_ANDA_DISINI"; 
-  var urlGateway = "https://api.fonnte.com/send"; // Atau URL penyedia lain
+  var urlGateway = "JhoAvrvGXDPYWGRMX7Ng"; // Atau URL penyedia lain
   
   var pesan = `Yth. Wali Murid,\n\nAnak Anda *${namaSiswa}* telah melakukan presensi *\${status}* pada jam ${waktu}.\n\nTerima kasih.\n- Class Digital SMPN 18 Padang`;
 
