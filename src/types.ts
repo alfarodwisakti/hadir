@@ -80,4 +80,5 @@ export interface ApiResponse<T = any> {
   skipped?: string[];
   duplicate?: boolean;
   offline?: boolean;
+  noOrtu?: string;
 }

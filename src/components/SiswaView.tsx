@@ -24,6 +24,7 @@ export const SiswaView: React.FC = () => {
   // Form State
   const [nomorQr, setNomorQr] = useState('');
   const [nama, setNama] = useState('');
+  const [noOrtu, setNoOrtu] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -102,7 +103,8 @@ export const SiswaView: React.FC = () => {
         nomorQr: cleanQr,
         barcode: cleanQr,
         nama: cleanNama,
-        kelas: DEFAULT_KELAS
+        kelas: DEFAULT_KELAS,
+        noOrtu: noOrtu.trim()
       });
 
       if (res.success) {
@@ -122,6 +124,7 @@ export const SiswaView: React.FC = () => {
   const handleEdit = (s: Siswa) => {
     setNomorQr(s.nomorQr);
     setNama(s.nama);
+    setNoOrtu(s.noOrtu || '');
     setIsEditing(true);
     setFormError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -130,6 +133,7 @@ export const SiswaView: React.FC = () => {
   const resetForm = () => {
     setNomorQr('');
     setNama('');
+    setNoOrtu('');
     setIsEditing(false);
     setFormError('');
   };
@@ -336,6 +340,22 @@ export const SiswaView: React.FC = () => {
                 className="w-full bg-slate-100 text-slate-500 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold cursor-not-allowed"
               />
               <span className="text-[11px] text-slate-400 mt-1 block">{DEFAULT_KELAS}</span>
+            </div>
+
+            <div className="sm:col-span-12">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                No. WhatsApp Orang Tua/Wali (Opsional)
+              </label>
+              <input
+                type="tel"
+                placeholder="Contoh: 081234567890"
+                value={noOrtu}
+                onChange={(e) => setNoOrtu(e.target.value)}
+                className="w-full bg-slate-50 text-slate-800 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-hidden font-medium"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Kalau diisi, notifikasi WhatsApp otomatis dikirim ke nomor ini setiap kali siswa presensi.
+              </span>
             </div>
           </div>
 
