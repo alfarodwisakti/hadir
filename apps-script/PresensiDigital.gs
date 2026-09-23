@@ -445,8 +445,8 @@ function outputJson(data) {
 }// Fungsi untuk mengirim WA via Gateway (Contoh menggunakan Fonnte/Wablas)
 function kirimWaOrtu(namaSiswa, status, noOrtu, waktu) {
   // GANTI DENGAN TOKEN DARI PENYEDIA LAYANAN ANDA
-  var token = "TOKEN_API_ANDA_DISINI"; 
-  var urlGateway = "JhoAvrvGXDPYWGRMX7Ng"; // Atau URL penyedia lain
+  var token = "JhoAvrvGXDPYWGRMX7Ng"; 
+  var urlGateway = "https://api.fonnte.com/send"; // Atau URL penyedia lain
   
   var pesan = `Yth. Wali Murid,\n\nAnak Anda *${namaSiswa}* telah melakukan presensi *\${status}* pada jam ${waktu}.\n\nTerima kasih.\n- Class Digital SMPN 18 Padang`;
 
