@@ -265,6 +265,7 @@ export const PresensiView: React.FC = () => {
 
     const payloadNama = student?.nama || "Tidak Diketahui";
     const payloadKelas = student?.kelas || DEFAULT_KELAS;
+    const payloadNoOrtu = student?.noOrtu || "";
 
     const res = await callAPI("simpanPresensi", {
       nomorQr,
@@ -274,7 +275,8 @@ export const PresensiView: React.FC = () => {
       keterangan,
       kelas: payloadKelas,
       tanggal: formatTanggal(),
-      jam: nowJam
+      jam: nowJam,
+      noOrtu: payloadNoOrtu
     });
 
     if (res.success) {

@@ -219,11 +219,28 @@ function outputJson(data) {
 }
 
 function kirimWaOrtu(nama, status, noHp, jam) {
-  // Format nomor HP
-  if (noHp.startsWith("0")) noHp = "62" + noHp.slice(1);
-  if (noHp.startsWith("+")) noHp = noHp.slice(1);
+  // Format nomor HP: pastikan dimulai dengan 62 (tanpa + atau 0 di depan)
+  noHp = String(noHp).trim();
+  
+  // Hapus karakter non-numeric kecuali +
+  noHp = noHp.replace(/[^\d+]/g, '');
+  
+  // Jika dimulai dengan +, hapus +
+  if (noHp.startsWith('+')) {
+    noHp = noHp.substring(1);
+  }
+  
+  // Jika dimulai dengan 0, ganti dengan 62
+  if (noHp.startsWith('0')) {
+    noHp = '62' + noHp.substring(1);
+  }
+  
+  // Jika tidak dimulai dengan 62, tambahkan 62 di depan
+  if (!noHp.startsWith('62')) {
+    noHp = '62' + noHp;
+  }
 
-  const pesan = `Yth. Wali Murid,\n\nAnak Anda *${nama}* telah presensi *\${status}* pada jam ${jam}.\n\nTerima kasih.\n- Class Digital SMPN 18 Padang`;
+  const pesan = `Yth. Wali Murid,\n\nAnak Anda *${nama}* telah presensi *${status}* pada jam ${jam}.\n\nTerima kasih.\n- Class Digital SMPN 18 Padang`;
 
   const options = {
     'method': 'post',
@@ -233,6 +250,7 @@ function kirimWaOrtu(nama, status, noHp, jam) {
   };
 
   try {
+    Logger.log("Mengirim WA ke: " + noHp + " untuk siswa: " + nama);
     const res = UrlFetchApp.fetch(WA_URL, options);
     Logger.log("Respon Fonnte: " + res.getContentText());
   } catch (e) {
