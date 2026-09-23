@@ -88,11 +88,13 @@ export function escapeHtml(value: any): string {
 function normalizeSiswaRecord(student: any): Siswa {
   const nomorQr = String(student?.nomorQr ?? student?.["Nomor Qr"] ?? student?.["nomor qr"] ?? "").trim();
   const barcode = String(student?.barcode ?? nomorQr).trim();
+  const noOrtu = String(student?.noOrtu ?? student?.["no_ortu"] ?? student?.["No Ortu"] ?? student?.["nohp"] ?? "").trim();
   return {
     nomorQr,
     barcode: barcode || nomorQr,
     nama: String(student?.nama ?? student?.Nama ?? "").trim(),
-    kelas: String(student?.kelas ?? student?.Kelas ?? "").trim()
+    kelas: String(student?.kelas ?? student?.Kelas ?? "").trim(),
+    noOrtu: noOrtu || undefined
   };
 }
 
