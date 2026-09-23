@@ -4,6 +4,7 @@ export interface Siswa {
   nama: string;
   kelas: string;
   email?: string;
+  noOrtu?: string;
 }
 
 export type StatusPresensi = 'Hadir' | 'Terlambat' | 'Izin' | 'Sakit' | 'Alpa';
